@@ -19,7 +19,7 @@ player_cookies = {}
 # Initialize a dictionary to store player status
 player_status = {}
 
-#Initialize a list of the connected players
+#Initialize a list of the connected players (I might change this doesn't seem practical)
 players = []
 
 #Initialize game_started as false
