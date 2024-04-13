@@ -15,14 +15,14 @@ def ban_player(player_name):
     """Ban a player from the game"""
     if player_name in players:
         print(f"Player {player_name} has been banned.")
-        # Implement logic to remove the player from the game or mark them as banned
-        # You may also want to notify other players about the ban
+        # Implement logic to remove the player from the game or mark them as banned later
+        # notify other players about the ban
     else:
         print(f"Player {player_name} is not currently in the game.")
 
 def suspend_player(player_name):
     """Suspend a player"""
-    # Implement player suspension logic here
+    # Implement player suspension logic
     print(f"Player {player_name} has been suspended")
     # Send SIGSTOP signal to the player's terminal
     os.kill(player_status[player_name]['pid'], signal.SIGSTOP)
