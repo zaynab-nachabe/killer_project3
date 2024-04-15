@@ -1,0 +1,16 @@
+Le client ne peut pas utiliser toutes le commandes disponibles. 
+
+Il peut fire les commandes suivantes:
+@PSEUDO !send_file PATH: envoie le fichier local PATH au joueur dont le pseudo est indiqué.
+Le pseudo peut être @Admin pour envoyer au serveur. Un cache pemet d'améliorer les performances.
+!broadcast_file PATH: similaire à send_file, mais le fichier est envoyé à tous les joueurs.
+!list : liste les pseudos, en indiquant leur état actuel (vivant, mort, crashed)
+
+Mes indications @TerminalGambit:
+Les commandes en questions sont utilisées par le modérateur du serveur donc un import commands pour
+avoir les commandes dans le fichier commands.py. suffit. Il faudra seulement handle les commandes dans
+le fichier chat_killer_client.py
+Le traitement du file d'un client à un autre ressemble beaucoup à l'envoie de fichier via les sockets en utilisant
+le tralala avec MAXBYTES. 
+Pour le broadcast, il suffit de parcourir la liste des clients et d'envoyer le fichier à chacun d'eux.
+Pour la liste, il suffit de parcourir la liste des clients et d'afficher leur état.
