@@ -6,6 +6,9 @@ Le pseudo peut être @Admin pour envoyer au serveur. Un cache pemet d'améliorer
 !broadcast_file PATH: similaire à send_file, mais le fichier est envoyé à tous les joueurs.
 !list : liste les pseudos, en indiquant leur état actuel (vivant, mort, crashed)
 
+!!! La commande !reconnect devra être implémentée en plus, pour tenter reprendre contact avec le serveur.
+(après un crash du serveur)
+
 Mes indications @TerminalGambit:
 Les commandes en questions sont utilisées par le modérateur du serveur donc un import commands pour
 avoir les commandes dans le fichier commands.py. suffit. Il faudra seulement handle les commandes dans
