@@ -28,7 +28,7 @@ while True:
 
     if 0 in rlist:
         line = os.read(0, MAXBYTES)
-        if len(len) == 0:
+        if len(line) == 0:
             s.shutdown(socket.SHUT_RD)
             break
         if line.startswith(b'@'):
