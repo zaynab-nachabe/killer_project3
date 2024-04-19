@@ -5,7 +5,6 @@ MAXBYTES = 4096
 if len(sys.argv)!=3:
     print("Usage: ", sys.argv[0], "hote port")
     sys.exit(1)
-1212
 HOST = sys.argv[1]
 PORT = int(sys.argv[2])
 sockaddr = (HOST, PORT)
