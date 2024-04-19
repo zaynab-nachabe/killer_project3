@@ -28,12 +28,13 @@ while True:
 
     if 0 in rlist:
         line = os.read(0, MAXBYTES)
+        line = line.decode().strip() #
         if len(line) == 0:
             s.shutdown(socket.SHUT_RD)
             break
-        if line.startswith(b'@'):
-            dest_pseudo = line[1:].decode().strip()
-            s.send((dest_pseudo + ' ' + line[1:]).encode())
+        if line.startswith('@'): #
+            dest_pseudo = line[1:].strip() # 
+            s.send((dest_pseudo + ' ' + line[1:]).encode()) #
         else:
             s.send(line)
     if s in rlist:
