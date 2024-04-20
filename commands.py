@@ -71,6 +71,7 @@ def list_players():
         formatted_username = '@' + player.username
         print(formatted_username)
 
+
 def reconnect_player(client_socket):
     """Reconnect a player after a server crash"""
     # That's when we do the !reconnect command
@@ -78,7 +79,7 @@ def reconnect_player(client_socket):
     pass
 
 
-def handle_chat_message(message):
+def handle_chat_message(message): 
     """Handle a chat message"""
     # Implement chat message handling logic here
     pass
