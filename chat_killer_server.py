@@ -17,6 +17,19 @@ ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
 
+"""
+-- Documentation of clients_dict --
+The clients_dict dictionary is used to store information about connected clients.
+The client when they first connect to the server share their username with the server.
+We store that username in the clients_dict dictionary with the client's address as the key.
+The goal is for us to use the simplest data structure to manipulate the messages sent by the clients:
+- To all the clients connected to the server
+- To a specific client
+- To the server (moderator)
+"""
+clients_dict = {}
+
+
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
 # AF_INET is the address family for IPv4, and SOCK_STREAM is the socket type for TCP
 
@@ -25,7 +38,7 @@ server.bind(ADDR) # The address is a tuple containing the hostname and port numb
 
 def handle_client(conn, addr):
     print(f"[NEW CONNECTION] {addr} connected.")
-
+    
     connected = True
     while connected:
         msg_length = conn.recv(HEADER).decode(FORMAT) # receive the message length
