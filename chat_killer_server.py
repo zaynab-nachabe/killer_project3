@@ -39,23 +39,29 @@ server.bind(ADDR) # The address is a tuple containing the hostname and port numb
 def handle_client(conn, addr):
     print(f"[NEW CONNECTION] {addr} connected.")
 
-    if addr not in clients_dict: # So here I just check if the client is already in the clients_dict
-        welcome_message = "Welcome to the chat server!" # We can always edit this message
-        conn.send(welcome_message.encode(FORMAT))
-        clients_dict[addr] = conn
-    
-    connected = True
-    while connected:
-        msg_length = conn.recv(HEADER).decode(FORMAT) # receive the message length
-        if msg_length:
-            msg_length = int(msg_length)
-            msg = conn.recv(msg_length).decode(FORMAT) # receive the message
-            if msg == DISCONNECT_MESSAGE:
-                connected = False
-            print(f"[{addr}] {msg}")
-            conn.send("Message received".encode(FORMAT)) # send a message back to the client
+    try:
+        if addr not in clients_dict:
+            welcome_message = "Welcome to the chat server!"
+            conn.send(welcome_message.encode(FORMAT))
+            clients_dict[addr] = conn
+        
+        connected = True
+        while connected:
+            msg_length = conn.recv(HEADER).decode(FORMAT)
+            if msg_length:
+                msg_length = int(msg_length)
+                msg = conn.recv(msg_length).decode(FORMAT)
+                if msg == DISCONNECT_MESSAGE:
+                    connected = False
+                print(f"[{addr}] {msg}")
+                conn.send("Message received".encode(FORMAT))
+    except ConnectionResetError:
+        print(f"[ERROR] Connection lost with {addr}")
+    finally:
+        conn.close()
+        clients_dict.pop(addr, None)  # Remove client from dictionary if disconnected
+        print(f"[DISCONNECTION] {addr} disconnected.")
 
-    conn.close()
 
 def start():
     server.listen() # The backlog parameter specifies the maximum number of queued connections
