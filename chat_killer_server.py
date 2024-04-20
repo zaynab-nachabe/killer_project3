@@ -40,6 +40,14 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDR) # The address is a tuple containing the hostname and port number
 # essentially, this is the server's address and port number that the server will listen on
 
+def broadcast_to_client(client_address, message):
+    """Send a message to a specific connected client."""
+    client = clients_dict.get(client_address)
+    if client:
+        client.send(message.encode(FORMAT))
+    else:
+        print(f"[ERROR] Client {client_address} not found.")
+
 def broadcast(message):
     """Send a message to all connected clients."""
     for client in clients_dict.values():
