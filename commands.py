@@ -10,6 +10,11 @@ def start_game():
     else:
         print("The game has already started. No new players can join.")
 
+def ban_player_message(player_name):
+    """send a message to the player getting banned"""
+    banning_message = "Vous avez été banni du jeu."
+    player_status[player_name]['socket'].send(banning_message.encode()) # send the message to the player
+    # I have to check with you guys how this is supposed to be implemented.
 
 def ban_player(player_name):
     """Ban a player from the game"""
