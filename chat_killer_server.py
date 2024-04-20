@@ -9,6 +9,8 @@
 
 import socket
 import threading
+import signal
+import sys
 
 HEADER = 64
 PORT = 5050
@@ -16,6 +18,8 @@ SERVER = socket.gethostbyname(socket.gethostname()) # get the IP address of the 
 ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
+SHUTDOWN_MESSAGE = "!SERVER_SHUTDOWN"
+
 
 """
 -- Documentation of clients_dict --
@@ -36,15 +40,18 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDR) # The address is a tuple containing the hostname and port number
 # essentially, this is the server's address and port number that the server will listen on
 
+def broadcast(message):
+    """Send a message to all connected clients."""
+    for client in clients_dict.values():
+        client.send(message.encode(FORMAT))
+
 def handle_client(conn, addr):
     print(f"[NEW CONNECTION] {addr} connected.")
-
+    clients_dict[addr] = conn
     try:
-        if addr not in clients_dict:
-            welcome_message = "Welcome to the chat server!"
-            conn.send(welcome_message.encode(FORMAT))
-            clients_dict[addr] = conn
-        
+        welcome_message = "Welcome to the chat server!"
+        conn.send(welcome_message.encode(FORMAT))
+
         connected = True
         while connected:
             msg_length = conn.recv(HEADER).decode(FORMAT)
@@ -59,19 +66,28 @@ def handle_client(conn, addr):
         print(f"[ERROR] Connection lost with {addr}")
     finally:
         conn.close()
-        clients_dict.pop(addr, None)  # Remove client from dictionary if disconnected
+        clients_dict.pop(addr, None)
         print(f"[DISCONNECTION] {addr} disconnected.")
 
-
 def start():
-    server.listen() # The backlog parameter specifies the maximum number of queued connections
+    server.listen()
     print(f"[LISTENING] server is listening on {SERVER}")
     while True:
-        conn, addr = server.accept() # Returns a new socket object and the address of the client
-        # handle_client(conn, addr)
+        conn, addr = server.accept()
         thread = threading.Thread(target=handle_client, args=(conn, addr))
         thread.start()
         print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
 
-print("[STARTING] server is starting...")
-start()
+def signal_handler(sig, frame):
+    """Handle graceful shutdown on SIGINT."""
+    print("\n[SHUTDOWN] Server is shutting down...")
+    broadcast(SHUTDOWN_MESSAGE)
+    for client in clients_dict.values():
+        client.close()
+    server.close()
+    sys.exit(0)
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal_handler)
+    print("[STARTING] server is starting...")
+    start()
