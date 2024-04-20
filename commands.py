@@ -34,13 +34,22 @@ def suspend_player(player_name):
     # Send SIGSTOP signal to the player's terminal
     os.kill(player_status[player_name]['pid'], signal.SIGSTOP)
 
+def forgive_player_message(player_name):
+    """Send a message to the player getting forgiven"""
+    forgiving_message = "Votre suspension a été levée. Vous pouvez maintenant jouer. Ne recommencez pas."
+    player_status[player_name]['socket'].send(forgiving_message.encode()) # send the message to the player
+
 def forgive_player(player_name):
     """Forgive a suspended player"""
     # Implement player forgiveness logic here
-    print(f"Suspension forgiven for player {player_name}")
-    # Send SIGCONT signal to the player's terminal
-    os.kill(player_status[player_name]['pid'], signal.SIGCONT)
-
+    # Send a message to the player getting forgiven
+    if player_name in players:
+        forgive_player_message(player_name)
+        print(f"Suspension forgiven for player {player_name}")
+        # Send SIGCONT signal to the player's terminal
+        os.kill(player_status[player_name]['pid'], signal.SIGCONT)
+    else:
+        print(f"Player {player_name} is not currently in the game.")
 
 def broadcast_file(file_path):
     """Broadcast a file to all players"""
