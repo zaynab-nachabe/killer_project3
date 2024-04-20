@@ -38,6 +38,11 @@ server.bind(ADDR) # The address is a tuple containing the hostname and port numb
 
 def handle_client(conn, addr):
     print(f"[NEW CONNECTION] {addr} connected.")
+
+    if addr not in clients_dict: # So here I just check if the client is already in the clients_dict
+        welcome_message = "Welcome to the chat server!" # We can always edit this message
+        conn.send(welcome_message.encode(FORMAT))
+        clients_dict[addr] = conn
     
     connected = True
     while connected:
