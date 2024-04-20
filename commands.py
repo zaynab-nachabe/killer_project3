@@ -20,8 +20,10 @@ def ban_player(player_name):
     """Ban a player from the game"""
     if player_name in players:
         print(f"Player {player_name} has been banned.")
-        # Implement logic to remove the player from the game or mark them as banned later
-        # notify other players about the ban
+        # Send a message to the player getting banned
+        ban_player_message(player_name)
+        # Remove the player from the list of players
+        players.remove(player_name)
     else:
         print(f"Player {player_name} is not currently in the game.")
 
