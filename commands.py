@@ -65,11 +65,15 @@ def send_file(client_socket, arguments):
 
 def list_players():
     """List all players"""
-    # Implement player listing logic here
-    pass
+    # So that's when we do the !list command
+    print("List of players:")
+    for player in players:
+        formatted_username = '@' + player.username
+        print(formatted_username)
 
 def reconnect_player(client_socket):
     """Reconnect a player after a server crash"""
+    # That's when we do the !reconnect command
     # Implement player reconnection logic here
     pass
 
