@@ -83,3 +83,15 @@ def handle_chat_message(message):
     """Handle a chat message"""
     # Implement chat message handling logic here
     pass
+
+def open_ChatWindow(pid):
+    if pid == 0:
+        os.execl("/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
+    else:
+        os.wait()
+
+def open_GameLobby(pid):
+    if pid == 0:
+        os.execl("/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
+    else:
+        os.wait()
