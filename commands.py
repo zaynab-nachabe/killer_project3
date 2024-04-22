@@ -1,5 +1,5 @@
 from modulateur import players, player_status
-import os, signal
+import os, signal, hashlib
 
 def start_game():
     """Start the game"""
@@ -10,51 +10,93 @@ def start_game():
     else:
         print("The game has already started. No new players can join.")
 
-def ban_player_message(player_name):
-    """send a message to the player getting banned"""
-    banning_message = "Vous avez été banni du jeu."
-    player_status[player_name]['socket'].send(banning_message.encode()) # send the message to the player
-    # I have to check with you guys how this is supposed to be implemented.
 
 def ban_player(player_name):
     """Ban a player from the game"""
     if player_name in players:
         print(f"Player {player_name} has been banned.")
-        # Send a message to the player getting banned
-        ban_player_message(player_name)
-        # Remove the player from the list of players
-        players.remove(player_name)
+        # Get the player's socket
+        player_socket = players[player_name]
+        # Close the player's socket
+        player_socket.close()
+        # Remove the player from the game
+        del players[player_name]
+        # Notify other players about the ban
+        for name, socket in players.items():
+            if name != player_name:  # Exclude the banned player
+                message = f"Player {player_name} has been banned from the game."
+                # Send the message to the player
+                socket.sendall(message.encode())
     else:
         print(f"Player {player_name} is not currently in the game.")
+
 
 def suspend_player(player_name):
     """Suspend a player"""
-    # Implement player suspension logic
-    print(f"Player {player_name} has been suspended")
-    # Send SIGSTOP signal to the player's terminal
-    os.kill(player_status[player_name]['pid'], signal.SIGSTOP)
-
-def forgive_player_message(player_name):
-    """Send a message to the player getting forgiven"""
-    forgiving_message = "Votre suspension a été levée. Vous pouvez maintenant jouer. Ne recommencez pas."
-    player_status[player_name]['socket'].send(forgiving_message.encode()) # send the message to the player
-
-def forgive_player(player_name):
-    """Forgive a suspended player"""
-    # Implement player forgiveness logic here
-    # Send a message to the player getting forgiven
     if player_name in players:
-        forgive_player_message(player_name)
-        print(f"Suspension forgiven for player {player_name}")
-        # Send SIGCONT signal to the player's terminal
-        os.kill(player_status[player_name]['pid'], signal.SIGCONT)
+        print(f"Player {player_name} has been suspended.")
+        # Get the player's socket
+        player_socket = players[player_name]
+        # Send a suspend command to the player's terminal
+        suspend_command = "!suspend"  # Define a custom command to suspend the player
+        player_socket.sendall(suspend_command.encode())
     else:
         print(f"Player {player_name} is not currently in the game.")
 
+
+def forgive_player(player_name):
+    """Forgive a suspended player"""
+    if player_name in players:
+        pass
+    else:
+        
+        print(f"Suspension forgiven for player {player_name}")
+        # Send SIGCONT signal to the player's terminal
+        os.kill(player_status[player_name]['pid'], signal.SIGCONT)
+
+
+
 def broadcast_file(file_path):
     """Broadcast a file to all players"""
-    # Implement file broadcasting logic here
-    pass
+    if not os.path.exists(file_path):
+        print(f"File '{file_path}' does not exist.")
+        return
+
+    # Read the file contents
+    with open(file_path, 'rb') as file:
+        file_data = file.read()
+
+    # Generate a hash of the file data to uniquely identify it
+    file_hash = hashlib.sha256(file_data).hexdigest()
+
+    # Check if the file is already cached
+    cached_file_path = os.path.join(CACHE_DIR, file_hash)
+    if not os.path.exists(cached_file_path):
+        # Cache the file if it's not already cached
+        with open(cached_file_path, 'wb') as cache_file:
+            cache_file.write(file_data)
+
+    # Iterate over all player sockets and send the file
+    for player_socket in players.values():
+        try:
+            # Send the file hash to indicate the file to be retrieved
+            player_socket.sendall(file_hash.encode())
+            ack = player_socket.recv(1024).decode()
+            if ack == "READY":
+                with open(cached_file_path, 'rb') as cached_file:
+                    while True:
+                        data = cached_file.read(1024)
+                        if not data:
+                            break
+                        player_socket.sendall(data)
+            else:
+                print(f"Player {player_socket} not ready to receive file.")
+        except Exception as e:
+            print(f"Error broadcasting file to player: {e}")
+
+    print("File broadcasted to all players.")
+
+
 
 
 def send_file(client_socket, arguments):
@@ -65,39 +107,16 @@ def send_file(client_socket, arguments):
 
 def list_players():
     """List all players"""
-    # So that's when we do the !list command
-    print("List of players:")
-    for player in players:
-        formatted_username = '@' + player.username
-        print(formatted_username)
-
+    # Implement player listing logic here
+    pass
 
 def reconnect_player(client_socket):
     """Reconnect a player after a server crash"""
-    # That's when we do the !reconnect command
     # Implement player reconnection logic here
     pass
 
 
-def handle_chat_message(message): 
+def handle_chat_message(message):
     """Handle a chat message"""
     # Implement chat message handling logic here
     pass
-
-def open_ChatWindow(pid):
-    try:
-        if pid == 0:
-            os.execl("/usr/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
-        else:
-            os.wait()
-    except FileNotFoundError:
-        print("xterm not found, please ensure it's installed and the path is correct.")
-
-def open_GameLobby(pid):
-    try:
-        if pid == 0:
-            os.execl("/usr/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
-        else:
-            os.wait()
-    except FileNotFoundError:
-        print("xterm not found, please ensure it's installed and the path is correct.")
