@@ -11,6 +11,8 @@ import socket
 import threading
 import signal
 import sys
+import commands
+
 
 HEADER = 64
 PORT = 5050
