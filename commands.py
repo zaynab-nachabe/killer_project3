@@ -85,13 +85,19 @@ def handle_chat_message(message):
     pass
 
 def open_ChatWindow(pid):
-    if pid == 0:
-        os.execl("/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
-    else:
-        os.wait()
+    try:
+        if pid == 0:
+            os.execl("/usr/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
+        else:
+            os.wait()
+    except FileNotFoundError:
+        print("xterm not found, please ensure it's installed and the path is correct.")
 
 def open_GameLobby(pid):
-    if pid == 0:
-        os.execl("/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
-    else:
-        os.wait()
+    try:
+        if pid == 0:
+            os.execl("/usr/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
+        else:
+            os.wait()
+    except FileNotFoundError:
+        print("xterm not found, please ensure it's installed and the path is correct.")
