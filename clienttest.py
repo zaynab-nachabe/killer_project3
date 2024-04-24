@@ -1,17 +1,24 @@
-import os, commands
-
+import client_commands as c_cmds
+import os
+import sys
+import errno
 # create files for game
 pid_files = os.fork()
 
 if pid_files == 0:
     try:
-        os.execl("/usr/bin/touch", "touch", "/var/tmp/killer.fifo", "/var/tmp/killer.log")
-    except FileNotFoundError:
-        print("touch not found, please ensure it's installed and the path is correct.")
-
+        os.open("/var/tmp/killer.log", os.O_RDONLY|os.O_CREAT)
+    except OSError as err:
+        print("Erreur creation log \"/var/tmp/killer.log\": (%d)"%(err.errno),file=sys.stderr)
+    try:
+        os.mkfifo("/var/tmp/killer.fifo")
+    except OSError as err:
+        print("Erreur creation fifo \"/var/tmp/killer.fifo\": (%d)"%(err.errno),file=sys.stderr)
+    sys.exit(0)
+else:
+    os.wait()
 # Open the game windows
 pid_ChatWindow = os.fork()
-commands.open_ChatWindow(pid_ChatWindow)
-
+c_cmds.open_ChatWindow(pid_ChatWindow)
 pid_GameLobby = os.fork()
-commands.open_GameLobby(pid_GameLobby)
+c_cmds.open_GameLobby(pid_GameLobby)
