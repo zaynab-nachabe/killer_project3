@@ -1,4 +1,4 @@
-from modulateur import players, player_status
+from moderateur import players, player_status
 import os, signal, hashlib
 
 def start_game():
