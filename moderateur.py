@@ -5,8 +5,8 @@ import commands
 #import threading #maybe we can use it maybe not
 
 # Define the host and port for the server
-#HOST = '127.0.0.1'  # Localhost
-HOST = socket.gethostbyname(socket.gethostbyname())
+HOST = '127.0.0.1'  # Localhost
+#HOST = socket.gethostbyname(socket.gethostbyname())
 PORT = 42042
 
 # Define the cache directory

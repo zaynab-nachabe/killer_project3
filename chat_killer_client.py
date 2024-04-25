@@ -4,9 +4,11 @@
 # Les commandes commencent par un !, les messages privés commencent par @toto (pour envoyer à toto), 
 # ou @toto @titi @tata pour envoyer un message privé à plusieurs destinataires. Lorsque le joueur meurt, 
 # toutes les fenêtres et les processus créés pour lui doivent être tués
-
 import socket
 import sys
+import os
+import select
+import errno
 
 HEADER = 64
 PORT = 5050
@@ -29,12 +31,41 @@ def send(msg):
     print("Server:", server_message)
 
 def main():
-    print("Connected to the server.")
-    print("Type messages here, '!DISCONNECT' to exit.")
-    
+    # create files for game
+    try:
+        fdr = os.open("/var/tmp/killer.log", os.O_RDWR|os.O_CREAT)
+    except OSError as err:
+        print("Erreur creation log \"/var/tmp/killer.log\": (%d)"%(err.errno),file=sys.stderr)
+    try:
+        os.mkfifo("/var/tmp/killer.fifo")
+    except OSError as err:
+        print("Erreur creation fifo \"/var/tmp/killer.fifo\": (%d)"%(err.errno),file=sys.stderr)
+        fdw = os.open("/var/tmp/killer.fifo", os.O_RDWR)
+
+    # Write connection info to log
+    log_boot_msg = "Connected to the server. \nType messages in killer.fifo terminal, '!DISCONNECT' to exit.\nPlease choose a username."
+    os.write(fdr, log_boot_msg.encode(FORMAT))
+
+    # Open the game windows and conserve pids
+    pid_ChatWindow = os.fork()
+    try:
+        if pid_ChatWindow == 0:
+            os.execl("/usr/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
+    except FileNotFoundError:
+        print("xterm not found, please ensure it's installed and the path is correct.")
+
+    pid_GameLobby = os.fork()
+    try:
+        if pid_GameLobby == 0:
+            os.execl("/usr/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
+    except FileNotFoundError:
+        print("xterm not found, please ensure it's installed and the path is correct.")
+
     try:
         while True:
-            msg = input()
+            select.select([fdw], [], []) # Wait for user input to FIFO
+            msg = os.read(fdw, 1024) # Read the FIFO
+            msg = msg.decode(FORMAT).strip('b\n') # Convert bytes to str and strip 'b' and newline        
             if msg == DISCONNECT_MESSAGE:
                 send(msg)
                 break
