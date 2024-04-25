@@ -5,7 +5,6 @@ import commands
 #import threading #maybe we can use it maybe not
 
 # Define the host and port for the server
-#HOST = '127.0.0.1'  # Localhost
 HOST = "127.0.0.1"
 PORT = 42042
 
