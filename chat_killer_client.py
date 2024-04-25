@@ -9,6 +9,7 @@ import sys
 import os
 import select
 import errno
+import threading
 
 HEADER = 64
 PORT = 5050
@@ -27,44 +28,13 @@ def send(msg):
     send_length += b' ' * (HEADER - len(send_length))
     client.send(send_length)
     client.send(message)
-    server_message = client.recv(2048).decode(FORMAT)
-    print("Server:", server_message)
 
-def main():
-    # create files for game
-    try:
-        fdr = os.open("/var/tmp/killer.log", os.O_RDWR|os.O_CREAT)
-    except OSError as err:
-        print("Erreur creation log \"/var/tmp/killer.log\": (%d)"%(err.errno),file=sys.stderr)
-    try:
-        os.mkfifo("/var/tmp/killer.fifo")
-    except OSError as err:
-        print("Erreur creation fifo \"/var/tmp/killer.fifo\": (%d)"%(err.errno),file=sys.stderr)
-        fdw = os.open("/var/tmp/killer.fifo", os.O_RDWR)
-
-    # Write connection info to log
-    log_boot_msg = "Connected to the server. \nType messages in killer.fifo terminal, '!DISCONNECT' to exit.\nPlease choose a username."
-    os.write(fdr, log_boot_msg.encode(FORMAT))
-
-    # Open the game windows and conserve pids
-    pid_ChatWindow = os.fork()
-    try:
-        if pid_ChatWindow == 0:
-            os.execl("/usr/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
-    except FileNotFoundError:
-        print("xterm not found, please ensure it's installed and the path is correct.")
-
-    pid_GameLobby = os.fork()
-    try:
-        if pid_GameLobby == 0:
-            os.execl("/usr/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
-    except FileNotFoundError:
-        print("xterm not found, please ensure it's installed and the path is correct.")
-
+def FIFO_to_Server(fifo):
+    print("reading thread started")
     try:
         while True:
-            select.select([fdw], [], []) # Wait for user input to FIFO
-            msg = os.read(fdw, 1024) # Read the FIFO
+            select.select([fifo], [], []) # Wait for user input to FIFO
+            msg = os.read(fifo, 1024) # Read the FIFO
             msg = msg.decode(FORMAT).strip('b\n') # Convert bytes to str and strip 'b' and newline        
             if msg == DISCONNECT_MESSAGE:
                 send(msg)
@@ -83,6 +53,54 @@ def main():
         print("Disconnecting from server...")
         client.close()
         sys.exit(0)
+
+def receive(fd):
+    print("listening thread started")
+    while True:
+        select.select([client], [], []) # Wait for server
+        server_message = client.recv(2048).decode(FORMAT) + '\n'
+        print(server_message)
+        os.write(fd, server_message.encode(FORMAT))
+
+def main():
+    # create files for game
+    try:
+        fdr = os.open("/var/tmp/killer.log", os.O_RDWR|os.O_APPEND|os.O_TRUNC|os.O_CREAT)
+    except OSError as err:
+        print("Erreur creation log \"/var/tmp/killer.log\": (%d)"%(err.errno),file=sys.stderr)
+    try:
+        os.mkfifo("/var/tmp/killer.fifo")
+        fdw = os.open("/var/tmp/killer.fifo", os.O_RDWR)
+    except OSError as err:
+        print("Erreur creation fifo \"/var/tmp/killer.fifo\": (%d)"%(err.errno),file=sys.stderr)
+        fdw = os.open("/var/tmp/killer.fifo", os.O_RDWR)
+
+    # Write connection info to log
+    log_boot_msg = "Connected to the server. \nType messages in killer.fifo terminal, '!DISCONNECT' to exit.\nPlease choose a username.\n"
+    os.write(fdr, log_boot_msg.encode(FORMAT))
+
+    # Open the game windows and conserve pids
+    pid_ChatWindow = os.fork()
+    try:
+        if pid_ChatWindow == 0:
+            os.execl("/usr/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
+    except FileNotFoundError:
+        print("xterm not found, please ensure it's installed and the path is correct.")
+
+    pid_GameLobby = os.fork()
+    try:
+        if pid_GameLobby == 0:
+            os.execl("/usr/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
+    except FileNotFoundError:
+        print("xterm not found, please ensure it's installed and the path is correct.")
+
+    # thread for sending to server
+    FIFO_to_Server_Thread = threading.Thread(target=FIFO_to_Server, args=(fdw,))
+    FIFO_to_Server_Thread.start()
+
+    # thread for writing server messages to log
+    listening_Thread = threading.Thread(target=receive, args=(fdr,))
+    listening_Thread.start()
 
 if __name__ == "__main__":
     main()
