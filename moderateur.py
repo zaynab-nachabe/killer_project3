@@ -5,8 +5,7 @@ import commands
 #import threading #maybe we can use it maybe not
 
 # Define the host and port for the server
-HOST = '127.0.0.1'  # Localhost
-#HOST = socket.gethostbyname(socket.gethostbyname())
+HOST = "127.0.0.1"
 PORT = 42042
 
 # Define the cache directory
@@ -104,6 +103,32 @@ def handle_client_connection(client_socket, client_address):
         # Close the client socket when done
         client_socket.close()
         print(f"Connection with {client_address} closed")
+
+def signal_handler(sig, frame):
+    """Handle graceful shutdown on SIGINT."""
+    print("\n[SHUTDOWN] Server is shutting down...")
+    broadcast(SHUTDOWN_MESSAGE)
+    for client in clients_dict.values():
+        client.close()
+    server.close()
+    sys.exit(0)
+
+def how_many_players():
+    """Return the number of connected players."""
+    return len(players)
+
+def broadcast_to_client(client_address, message):
+    """Send a message to a specific connected client."""
+    client = clients_dict.get(client_address)
+    if client:
+        client.send(message.encode(FORMAT))
+    else:
+        print(f"[ERROR] Client {client_address} not found.")
+
+def broadcast(message):
+    """Send a message to all connected clients."""
+    for client in clients_dict.values():
+        client.send(message.encode(FORMAT)) # There is an issue here. We don't handle the format correctly.
 
 def main():
     # Create a TCP/IP socket
