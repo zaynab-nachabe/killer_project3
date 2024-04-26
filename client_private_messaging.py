@@ -2,7 +2,7 @@ import socket
 import select
 import sys
 
-HOST = 'localhost'  # Adresse IP du serveur
+HOST = '127.0.0.1'  # Adresse IP du serveur
 PORT = 12345        # Port sur lequel le serveur écoute
 
 def main():
