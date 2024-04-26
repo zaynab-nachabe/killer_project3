@@ -17,6 +17,7 @@ SERVER = "127.0.0.1" # socket.gethostbyname(socket.gethostname())
 ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
+SHUTDOWN_MESSAGE = "!SERVER_SHUTDOWN"
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect(ADDR)
@@ -107,14 +108,20 @@ def main():
         if pid_ChatWindow == 0:
             os.execl("/usr/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
     except FileNotFoundError:
-        print("xterm not found, please ensure it's installed and the path is correct.")
+        try: 
+            os.execl("/opt/homebrew/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo'")
+        except FileNotFoundError:
+            print("xterm not found, please ensure it's installed and the path is correct.")
 
     pid_GameLobby = os.fork()
     try:
         if pid_GameLobby == 0:
             os.execl("/usr/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
     except FileNotFoundError:
-        print("xterm not found, please ensure it's installed and the path is correct.")
+        try: 
+            os.execl("/opt/homebrew/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo'")
+        except FileNotFoundError:
+            print("xterm not found, please ensure it's installed and the path is correct.")
 
     # thread for sending to server
     FIFO_to_Server_Thread = threading.Thread(target=FIFO_to_Server, args=(fdw,fdr))
