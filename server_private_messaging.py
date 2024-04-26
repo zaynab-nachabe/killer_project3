@@ -1,7 +1,7 @@
 import socket
 import select
 
-HOST = ''   # Adresse IP du serveur, j'ai laissé vide pour accepter les connexions sur toutes les interfaces réseau
+HOST = '127.0.0.1'   # Adresse IP du serveur, j'ai laissé vide pour accepter les connexions sur toutes les interfaces réseau
 PORT = 12345  # Port sur lequel le serveur écoute
 
 # Dictionnaire pour stocker les pseudonymes des clients
