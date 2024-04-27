@@ -129,7 +129,7 @@ def handle_client(connection, client_address):
         print(f"[ERROR] Connection lost with {client_address}")
     finally:
         connection.close()
-        clients_dict[connection][1] = "disconnected"
+        clients_dict[(connection, client_address)][1] = "disconnected"
         print(f"[DISCONNECTION] {client_address} disconnected.")
 
 def start():
