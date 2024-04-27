@@ -46,7 +46,7 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
         while True or not pseudo_chosen: # Continues to listen even if no data to send because of invalid inputs from user
             select.select([fifo], [], []) # Wait for user input to FIFO
             msg = os.read(fifo, 2048) # Read the FIFO
-            msg = msg.decode(FORMAT).strip('b\n') # Convert bytes to str and strip 'b' and newline
+            msg = msg.decode(FORMAT).strip('\n') # Convert bytes to str and strip newline
             if not pseudo_chosen:
                 if msg == DISCONNECT_MESSAGE:
                     send(msg)
