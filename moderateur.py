@@ -26,6 +26,9 @@ players = {}
 #Initialize game_started as false
 game_started = False
 
+# Initialize a dictionary to store connected clients
+clients_dict = {}
+
 
 def generate_cookie():
     """Generate a unique cookie for a player"""
