@@ -21,6 +21,17 @@ DISCONNECT_MESSAGE = "!DISCONNECT"
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect(ADDR)
 
+# signal handlers for each xterm
+def sigchld_chat_handler(signum, frame):
+    global chat_window_closed
+    print("signal caught, xterm for chat closed.")
+    chat_window_closed = True
+        
+def sigchld_fifo_handler(signum, frame):
+    global chat_window_closed
+    print("signal caught, xterm for chat closed.")
+    chat_window_closed = True
+
 def send(msg):
     message = msg.encode(FORMAT)
     msg_length = len(message)
@@ -46,7 +57,7 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
         while True or not pseudo_chosen: # Continues to listen even if no data to send because of invalid inputs from user
             select.select([fifo], [], []) # Wait for user input to FIFO
             msg = os.read(fifo, 2048) # Read the FIFO
-            msg = msg.decode(FORMAT).strip('b\n') # Convert bytes to str and strip 'b' and newline
+            msg = msg.decode(FORMAT).strip('\n') # Convert bytes to str and strip newline
             if not pseudo_chosen:
                 if msg == DISCONNECT_MESSAGE:
                     send(msg)
@@ -84,6 +95,10 @@ def receive(fd):
     except KeyboardInterrupt:
         print("Ctrl+C detected. Ending listening ...")
 
+# create flags for reopening the xterms
+chat_window_closed = False
+game_lobby_closed = False
+
 def main():
     # create files for game
     try:
@@ -102,6 +117,7 @@ def main():
     os.write(fdr, log_boot_msg.encode(FORMAT))
 
     # Open the game windows and conserve pids
+
     pid_ChatWindow = os.fork()
     try:
         if pid_ChatWindow == 0:
@@ -109,6 +125,7 @@ def main():
     except FileNotFoundError:
         print("xterm not found, please ensure it's installed and the path is correct.")
 
+    
     pid_GameLobby = os.fork()
     try:
         if pid_GameLobby == 0:
