@@ -102,6 +102,7 @@ def gestion_message(sock, server_socket, sockets_list):
         sockets_list.remove(sock)
 
 def handle_client(connection, client_address):
+    global sockets_list
     print(f"[NEW CONNECTION] {client_address} connected.")
     clients_dict[(connection, client_address)] = [None, "connected", f"last-heartbeat: {time.time()}"]
     # sockets_list = creation_socket(server)
@@ -111,27 +112,22 @@ def handle_client(connection, client_address):
 
         connected = True
         while connected:
-            readable_sockets = select.select(sockets_list, [], [], 0)[0]
-            for sock in readable_sockets:
-                if sock == server:
-                    print('Nouveau client connecté depuis', client_address)
-                    connection.sendall(b'Veuillez entrer votre pseudo sous le format : pseudo=PSEUDO')
-                    pseudo = connection.recv(1024).decode().strip('=')[1]
-                    if pseudo in [client[0] for client in clients_dict.values()]:
-                        connection.sendall("Pseudo déjà pris!".encode(FORMAT))
-                        continue
-                    clients_dict[(connection, client_address)][0] = pseudo
-                    sockets_list.append(connection)
-                    connection.sendall("Pseudo reçu!".encode(FORMAT))
-                else:
-                    gestion_message(sock, server, sockets_list)
+            print('Nouveau client connecté depuis', client_address)
+            connection.sendall(b'Veuillez entrer votre pseudo sous le format : pseudo=PSEUDO')
+            pseudo = connection.recv(1024).decode().strip('=')[1]
+            if pseudo in [client[0] for client in clients_dict.values()]:
+                connection.sendall("Pseudo déjà pris!".encode(FORMAT))
+            clients_dict[(connection, client_address)][0] = pseudo
+            sockets_list.append(connection)
+            connection.sendall("Pseudo reçu!".encode(FORMAT))
+            gestion_message(connection, server, sockets_list)
                 
     except ConnectionResetError:
-        print(f"[ERROR] Connection lost with {addr}")
+        print(f"[ERROR] Connection lost with {client_address}")
     finally:
-        conn.close()
-        clients_dict[sock][1] = "disconnected"
-        print(f"[DISCONNECTION] {addr} disconnected.")
+        connection.close()
+        clients_dict[connection][1] = "disconnected"
+        print(f"[DISCONNECTION] {client_address} disconnected.")
 
 def start():
     server.listen()
