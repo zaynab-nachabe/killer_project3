@@ -6,7 +6,11 @@ import commands
 
 # Define the host and port for the server
 HOST = "127.0.0.1"
-PORT = 42042
+PORT = 5050
+FORMAT = 'utf-8'
+DISCONNECT_MESSAGE = "!DISCONNECT"
+SHUTDOWN_MESSAGE = "!SERVER_SHUTDOWN"
+
 
 # Define the cache directory
 CACHE_DIR = '/var/tmp/cache/'

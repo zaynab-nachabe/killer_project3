@@ -30,6 +30,17 @@ clients_dict = {}
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
 # AF_INET is the address family for IPv4, and SOCK_STREAM is the socket type for TCP
 
+server.bind(ADDR)
+# The address is a tuple containing the hostname and port number
+# essentially, this is the server's address and port number that the server will listen on
+# Écoute des connexions entrantes
+server.listen()
+
+print("Serveur démarré sur le port", PORT)
+
+# Liste des sockets à surveiller pour les entrées
+sockets_list = [server]
+
 def how_many_connected():
     global clients_dict
     count = 0
@@ -41,16 +52,6 @@ def how_many_connected():
 def creation_socket(server):
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     # Liaison du socket à l'adresse et au port spécifiés
-    server.bind(ADDR)
-    # The address is a tuple containing the hostname and port number
-    # essentially, this is the server's address and port number that the server will listen on
-    # Écoute des connexions entrantes
-    server.listen()
-
-    print("Serveur démarré sur le port", PORT)
-    
-    # Liste des sockets à surveiller pour les entrées
-    sockets_list = [server]
     return sockets_list
 
 def gestion_message(sock, server_socket, sockets_list):
@@ -101,9 +102,9 @@ def gestion_message(sock, server_socket, sockets_list):
         sockets_list.remove(sock)
 
 def handle_client(connection, client_address):
-    print(f"[NEW CONNECTION] {addr} connected.")
+    print(f"[NEW CONNECTION] {client_address} connected.")
     clients_dict[(connection, client_address)] = [None, "connected", f"last-heartbeat: {time.time()}"]
-    sockets_list = creation_socket(server)
+    # sockets_list = creation_socket(server)
     try:
         welcome_message = "Bienvenu sur le serveur!"
         connection.send(welcome_message.encode(FORMAT))
