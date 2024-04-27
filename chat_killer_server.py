@@ -142,19 +142,19 @@ def start():
         thread.start()
         print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
         # Handle inputs on the server side
-        command = input("> ")
-        if command == "!list":
-            print(f"Number of connected players: {how_many_connected()}")
-            for _, info in clients_dict.keys():
-                print(f"{info[0]} : {info[1]}")
-        elif command == "!online_status":
-            print("Online status of players:")
-            for _, info in clients_dict.keys():
-                print(f"Player status: {info[1]}")
-        elif command == "!last-heartbeats":
-            print("The last heartbeats of each player is:")
-            for _, info in clients_dict.items():
-                print(f"Player: {info[0]} - Last heartbeat: {info[2]}")
+        while (command := input("> ")):
+            if command == "!list":
+                print(f"Number of connected players: {how_many_connected()}")
+                for _, info in clients_dict.keys():
+                    print(f"{info[0]} : {info[1]}")
+            elif command == "!online_status":
+                print("Online status of players:")
+                for _, info in clients_dict.keys():
+                    print(f"Player status: {info[1]}")
+            elif command == "!last-heartbeats":
+                print("The last heartbeats of each player is:")
+                for _, info in clients_dict.items():
+                    print(f"Player: {info[0]} - Last heartbeat: {info[2]}")
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
