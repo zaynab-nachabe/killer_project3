@@ -39,19 +39,19 @@ def how_many_connected():
     return count
 
 def creation_socket(server):
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # Liaison du socket à l'adresse et au port spécifiés
-        server.bind(ADDR)
-        # The address is a tuple containing the hostname and port number
-        # essentially, this is the server's address and port number that the server will listen on
-        # Écoute des connexions entrantes
-        server.listen()
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # Liaison du socket à l'adresse et au port spécifiés
+    server.bind(ADDR)
+    # The address is a tuple containing the hostname and port number
+    # essentially, this is the server's address and port number that the server will listen on
+    # Écoute des connexions entrantes
+    server.listen()
 
-        print("Serveur démarré sur le port", PORT)
-        
-        # Liste des sockets à surveiller pour les entrées
-        sockets_list = [server]
-        return sockets_list
+    print("Serveur démarré sur le port", PORT)
+    
+    # Liste des sockets à surveiller pour les entrées
+    sockets_list = [server]
+    return sockets_list
 
 def gestion_message(sock, server_socket, sockets_list):
     try:
@@ -100,20 +100,19 @@ def gestion_message(sock, server_socket, sockets_list):
         clients_dict[sock][1] = "fucked up" # c'est pas chatgpt qui écrirait ça hein
         sockets_list.remove(sock)
 
-def handle_client(conn, addr):
+def handle_client(connection, client_address):
     print(f"[NEW CONNECTION] {addr} connected.")
-    clients_dict[(conn, addr)] = [None, "connected", f"last-heartbeat: {time.time()}"]
+    clients_dict[(connection, client_address)] = [None, "connected", f"last-heartbeat: {time.time()}"]
     sockets_list = creation_socket(server)
     try:
         welcome_message = "Bienvenu sur le serveur!"
-        conn.send(welcome_message.encode(FORMAT))
+        connection.send(welcome_message.encode(FORMAT))
 
         connected = True
         while connected:
             readable_sockets = select.select(sockets_list, [], [], 0)[0]
             for sock in readable_sockets:
                 if sock == server:
-                    connection, client_address = server.accept()
                     print('Nouveau client connecté depuis', client_address)
                     connection.sendall(b'Veuillez entrer votre pseudo sous le format : pseudo=PSEUDO')
                     pseudo = connection.recv(1024).decode().strip('=')[1]
