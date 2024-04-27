@@ -66,7 +66,7 @@ def gestion_message(sock, server_socket, sockets_list):
                 dest_socket = None
                 for client_socket, val in clients_dict.items():
                     pseudo = val[0]
-                    if pseudo == dest_pseudo:
+                    if pseudo == dest_pseudo and client_socket != sock:
                         dest_socket = client_socket
                         break
                 if dest_socket:
