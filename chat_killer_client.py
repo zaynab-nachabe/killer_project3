@@ -17,7 +17,6 @@ SERVER = "127.0.0.1" # socket.gethostbyname(socket.gethostname())
 ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
-SHUTDOWN_MESSAGE = "!SERVER_SHUTDOWN"
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect(ADDR)
@@ -30,21 +29,21 @@ def send(msg):
     client.send(send_length)
     client.send(message)
 
-def create_cookie_dir(pseudo):
+def create_cookie_dir(pseudo): # creates the cookie file for a specific pseudo as soon as pseudo is chosen
     try:
-        os.mkdir(f"/var/tmp/{pseudo}")
+        os.mkdir(f"/var/tmp/{pseudo}") # creates pseudo directory
     except OSError as err:
         print(f"Erreur creation directory \"/var/tmp/{pseudo}\": (%d)"%(err.errno),file=sys.stderr)
     try:
-        fd_c = os.open(f"/var/tmp/{pseudo}/cookie", os.O_RDWR|os.O_TRUNC|os.O_CREAT)
+        fd_c = os.open(f"/var/tmp/{pseudo}/cookie", os.O_RDWR|os.O_TRUNC|os.O_CREAT) # creates cookie and leaves fd_c open, waiting to receive cookie data from server
     except OSError as err:
         print(f"Erreur creation cookie \"/var/tmp/{pseudo}/cookie\": (%d)"%(err.errno),file=sys.stderr)
 
-def FIFO_to_Server(fifo, log):
+def FIFO_to_Server(fifo, log): # function handling the user inputs to send to server through a FIFO
     print("reading thread started")
     try:
         pseudo_chosen = False
-        while True or not pseudo_chosen:
+        while True or not pseudo_chosen: # Continues to listen even if no data to send because of invalid inputs from user
             select.select([fifo], [], []) # Wait for user input to FIFO
             msg = os.read(fifo, 2048) # Read the FIFO
             msg = msg.decode(FORMAT).strip('b\n') # Convert bytes to str and strip 'b' and newline
@@ -108,20 +107,14 @@ def main():
         if pid_ChatWindow == 0:
             os.execl("/usr/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
     except FileNotFoundError:
-        try: 
-            os.execl("/opt/homebrew/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo'")
-        except FileNotFoundError:
-            print("xterm not found, please ensure it's installed and the path is correct.")
+        print("xterm not found, please ensure it's installed and the path is correct.")
 
     pid_GameLobby = os.fork()
     try:
         if pid_GameLobby == 0:
             os.execl("/usr/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
     except FileNotFoundError:
-        try: 
-            os.execl("/opt/homebrew/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo'")
-        except FileNotFoundError:
-            print("xterm not found, please ensure it's installed and the path is correct.")
+        print("xterm not found, please ensure it's installed and the path is correct.")
 
     # thread for sending to server
     FIFO_to_Server_Thread = threading.Thread(target=FIFO_to_Server, args=(fdw,fdr))
