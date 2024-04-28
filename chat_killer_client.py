@@ -19,8 +19,18 @@ ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
 
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect(ADDR)
+client = None
+# client.connect(ADDR)
+
+def connect_server():
+    global ADDR
+    global client
+    try:
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client.connect(ADDR)
+    except ConnectionRefusedError:
+        print('Connection Refused')
+
 
 def send(msg):
     message = msg.encode(FORMAT)
@@ -73,14 +83,43 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
     finally:
         print("Disconnecting from server...")
         client.close()
+        disconnectLogMessage = "You've disconnected from the server. If you would like to reconnect, enter '!reconnect'.\nOtherwise, enter '!close'.\n"
+        os.write(log, disconnectLogMessage.encode(FORMAT))
+        closed_flag = False
+        while not closed_flag:
+            select.select([fifo], [], []) # Wait for user input to FIFO
+            close_dc_msg = os.read(fifo, 2048)
+            close_dc_msg = close_dc_msg.decode(FORMAT).strip('\n')
+            if close_dc_msg == "!close":
+                print("Closing... Good Bye !")
+                closingLogMsg = "Closing... Good Bye !\n"
+                os.write(log, closingLogMsg.encode(FORMAT))
+                closed_flag = True
+            elif close_dc_msg == "!reconnect":
+                reconnectingLogMsg = "Reestablishing Connection...\n"
+                os.write(log, reconnectingLogMsg.encode(FORMAT))
+                connect_server()
+                FIFO_to_Server(fifo, log)
+            else:
+                unexpectedLogMsg = "Sorry, please enter either '!close' or '!reconnect'.\n"
+                os.write(log, unexpectedLogMsg.encode(FORMAT))
+                continue
         sys.exit(0)
 
 def receive(fd):
     print("listening thread started")
     try:
         while True:
-            select.select([client], [], []) # Wait for server
-            server_message = client.recv(2048).decode(FORMAT) + '\n'
+            try:
+                select.select([client], [], []) # Wait for server
+            except ValueError:
+                break
+            try:
+                server_message = client.recv(2048).decode(FORMAT) + '\n'
+            except OSError:
+                if OSError.errno == 9:
+                    print("Socket closed...")
+                    break
             os.write(fd, server_message.encode(FORMAT))
     except KeyboardInterrupt:
         print("Ctrl+C detected. Ending listening ...")
@@ -91,12 +130,9 @@ def sigchld_xterm_handler(signum, frame):
     global pid_GameLobby
     print("SIGCHLD received, processing ...")
     caught_pid = os.wait()
-    print('PID OF CAPTURE SIGCHLD :', caught_pid[0])
     if caught_pid[0] == pid_GameLobby:
-        print("signal caught, xterm for lobby closed.")
         open_GameLobby()
     elif caught_pid[0] == pid_ChatWindow:
-        print("signal caught, xterm for chat closed.")
         open_ChatWindow()
     
 
@@ -129,6 +165,7 @@ def open_GameLobby():
         print("xterm not found, please ensure it's installed and the path is correct.")
 
 def main():
+    connect_server()
     # create files for game
     try:
         fdr = os.open("/var/tmp/killer.log", os.O_RDWR|os.O_APPEND|os.O_TRUNC|os.O_CREAT)
@@ -156,5 +193,10 @@ def main():
     listening_Thread = threading.Thread(target=receive, args=(fdr,))
     listening_Thread.start()
 
+    FIFO_to_Server_Thread.join()
+    listening_Thread.join()
+
+    os.close(fdr)
+    os.close(fdw)
 if __name__ == "__main__":
     main()
