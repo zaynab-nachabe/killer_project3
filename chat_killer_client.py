@@ -85,12 +85,10 @@ def receive(fd):
     except KeyboardInterrupt:
         print("Ctrl+C detected. Ending listening ...")
 
-# sigchld handler for both xterms
+# sigchld handler for both , gets the pid associated with the caught SIGCHLD and reopens it's xterm
 def sigchld_xterm_handler(signum, frame):
     global pid_ChatWindow
     global pid_GameLobby
-    print('chat window =',pid_ChatWindow)
-    print('game lobby =', pid_GameLobby)
     print("SIGCHLD received, processing ...")
     caught_pid = os.wait()
     print('PID OF CAPTURE SIGCHLD :', caught_pid[0])
