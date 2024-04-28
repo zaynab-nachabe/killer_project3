@@ -10,6 +10,7 @@ import os
 import select
 import errno
 import threading
+import signal
 
 HEADER = 64
 PORT = 5050
@@ -20,17 +21,6 @@ DISCONNECT_MESSAGE = "!DISCONNECT"
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect(ADDR)
-
-# signal handlers for each xterm
-def sigchld_chat_handler(signum, frame):
-    global chat_window_closed
-    print("signal caught, xterm for chat closed.")
-    chat_window_closed = True
-        
-def sigchld_fifo_handler(signum, frame):
-    global chat_window_closed
-    print("signal caught, xterm for chat closed.")
-    chat_window_closed = True
 
 def send(msg):
     message = msg.encode(FORMAT)
@@ -95,9 +85,50 @@ def receive(fd):
     except KeyboardInterrupt:
         print("Ctrl+C detected. Ending listening ...")
 
-# create flags for reopening the xterms
-chat_window_closed = False
-game_lobby_closed = False
+# sigchld handler for both xterms
+def sigchld_xterm_handler(signum, frame):
+    global pid_ChatWindow
+    global pid_GameLobby
+    print('chat window =',pid_ChatWindow)
+    print('game lobby =', pid_GameLobby)
+    print("SIGCHLD received, processing ...")
+    caught_pid = os.wait()
+    print('PID OF CAPTURE SIGCHLD :', caught_pid[0])
+    if caught_pid[0] == pid_GameLobby:
+        print("signal caught, xterm for lobby closed.")
+        open_GameLobby()
+    elif caught_pid[0] == pid_ChatWindow:
+        print("signal caught, xterm for chat closed.")
+        open_ChatWindow()
+    
+
+signal.signal(signal.SIGCHLD, handler=sigchld_xterm_handler)
+
+pid_ChatWindow = None
+pid_GameLobby = None
+
+def open_ChatWindow():
+    global pid_ChatWindow
+    pid_ChatWindow = os.fork()
+    try:
+        if pid_ChatWindow == 0:
+            print('child of chat seen by parent:', pid_ChatWindow, 'by os:', os.getpid())
+            os.execl("/usr/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
+        else:
+            print('parent pid of pid_ChatWindow:', os.getpid(),'of child:', pid_ChatWindow)
+
+    except FileNotFoundError:
+        print("xterm not found, please ensure it's installed and the path is correct.")
+
+def open_GameLobby():
+    global pid_GameLobby
+    pid_GameLobby = os.fork()
+    try:
+        if pid_GameLobby == 0:
+            print('child pid =', pid_GameLobby)
+            os.execl("/usr/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
+    except FileNotFoundError:
+        print("xterm not found, please ensure it's installed and the path is correct.")
 
 def main():
     # create files for game
@@ -116,23 +147,9 @@ def main():
     log_boot_msg = "Connected to the server. \nType messages and commands in killer.fifo terminal.\nYou must choose a username. Please make your choice with the following format: \n'pseudo=example'\nOtherwise, enter '!DISCONNECT' to leave the server.\n"
     os.write(fdr, log_boot_msg.encode(FORMAT))
 
-    # Open the game windows and conserve pids
-
-    pid_ChatWindow = os.fork()
-    try:
-        if pid_ChatWindow == 0:
-            os.execl("/usr/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
-    except FileNotFoundError:
-        print("xterm not found, please ensure it's installed and the path is correct.")
-
-    
-    pid_GameLobby = os.fork()
-    try:
-        if pid_GameLobby == 0:
-            os.execl("/usr/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
-    except FileNotFoundError:
-        print("xterm not found, please ensure it's installed and the path is correct.")
-
+    # thread for xterm crash tolerance
+    open_ChatWindow()
+    open_GameLobby()
     # thread for sending to server
     FIFO_to_Server_Thread = threading.Thread(target=FIFO_to_Server, args=(fdw,fdr))
     FIFO_to_Server_Thread.start()
