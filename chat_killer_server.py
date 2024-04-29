@@ -158,4 +158,12 @@ def start():
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     print("[STARTING] server is starting...")
+    pid = os.fork():
+    if pid == 0:
+        signal.signal(signal.SIGUSR1, signal_handler)
+        while True:
+            time.sleep(10)
+            for client, info in clients_dict.items():
+                if info[1] == "connected":
+                    client.sendall(b"$HEARTBEAT")
     start()
