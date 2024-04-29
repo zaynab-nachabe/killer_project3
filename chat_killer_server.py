@@ -240,27 +240,6 @@ def handle_issue():
     if issue[0] == "Disconnection":
         print(f"Handling issue: {issue[1]} is {issue[2]}")
 
-def gestion_message(client_socket, server_socket, sockets_list):
-    while True:
-        try:
-            message = client_socket.recv(1024).decode(FORMAT)
-            if message:
-                print(f"Received message from {client_socket.getpeername()}: {message}")
-                # Broadcast the message to all other connected clients
-                for client in sockets_list:
-                    if client != client_socket and client != server_socket:
-                        try:
-                            client.sendall(message.encode(FORMAT))
-                        except:
-                            # Handle a possible broken connection
-                            client.close()
-                            sockets_list.remove(client)
-        except Exception as e:
-            print(f"Error: {str(e)}")
-            sockets_list.remove(client_socket)
-            client_socket.close()
-            continue
-
 def handle_client(connection, client_address):
     global sockets_list
     global clients_dict
