@@ -14,6 +14,7 @@ import sys, select
 import commands
 import hashlib
 import time
+import re
 
 # Constants
 HEADER = 64
@@ -42,6 +43,12 @@ print("Serveur démarré sur le port", PORT)
 # Liste des sockets à surveiller pour les entrées
 sockets_list = [server]
 
+def clean_message(message):
+    # Strip leading and trailing spaces and replace multiple spaces with a single space
+    cleaned_message = re.sub(r'\s+', ' ', message).strip()
+    final_message = re.sub(r'^\d+\s*', '', cleaned_message)
+    return final_message
+
 def how_many_connected():
     global clients_dict
     count = 0
@@ -61,18 +68,18 @@ def gestion_message(connection, client_address, server_socket):
     global sockets_list
     try:
         client_message = connection.recv(1024).decode()
-        
+        client_message = clean_message(client_message)
         if client_message:
             client_key = (connection, client_address)
             if client_key in clients_dict and clients_dict[client_key][0] is None:
                 if client_message.startswith("pseudo="):
                     pseudo = client_message.split("=")[1].strip()
                     if pseudo in [client[0] for client in clients_dict.values()]:
-                        connection.sendall("Pseudo déjà pris!".encode(FORMAT))
+                        connection.sendall("Pseudo déjà pris!\n".encode(FORMAT))
                     else:
                         clients_dict[(connection, client_address)] = [pseudo, "connected", f"last-heartbeat: {time.time()}"]
                         sockets_list.append(connection)
-                        connection.sendall("Pseudo reçu!".encode(FORMAT))
+                        connection.sendall("Pseudo reçu!\n".encode(FORMAT))
                 else:
                     pass
             else:
@@ -80,7 +87,7 @@ def gestion_message(connection, client_address, server_socket):
                 if client_message == "$HEARTBEAT":
                     clients_dict[connection] = [pseudo, "connected", f"last-heartbeat:{time.time()}"]
                     connection.sendall(b"heartbeat received\n")
-                print(f"Message du client {pseudo} : {client_message}")
+                print(f"Message du client {pseudo} : {client_message}\n")
                 if client_message.startswith('@'):
                     dest_pseudo, message = client_message[1:].split(' ', 1)
                     dest_socket = None
@@ -201,7 +208,7 @@ def signal_handler(sig, frame):
     """Handle graceful shutdown on SIGINT."""
     print("\n[SHUTDOWN] Server is shutting down...")
     broadcast(SHUTDOWN_MESSAGE)
-    for client in clients_dict.values():
+    for client, info in clients_dict.items():
         client[0].close()
     server.close()
     sys.exit(0)
@@ -274,6 +281,7 @@ def start():
         thread2.start()
         print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
         # Handle inputs on the server side
+        """
         while (command := input("> ")):
             if command == "!list":
                 print(f"Number of connected players: {how_many_connected()}")
@@ -295,6 +303,7 @@ def start():
                 sys.exit(0)
         thread.join()
         thread2.join()
+        """
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
