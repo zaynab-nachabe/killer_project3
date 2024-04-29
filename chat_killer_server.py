@@ -87,7 +87,7 @@ def gestion_message(connection, client_address, server_socket):
                 if client_message == "$HEARTBEAT":
                     clients_dict[connection] = [pseudo, "connected", f"last-heartbeat:{time.time()}"]
                     connection.sendall(b"heartbeat received\n")
-                print(f"Message du client {pseudo} : {client_message}")
+                print(f"{pseudo} : {client_message}")
                 if client_message.startswith('@'):
                     dest_pseudo, message = client_message[1:].split(' ', 1)
                     dest_socket = None
@@ -240,8 +240,6 @@ def check_heartbeat():
             if (last_heartbeat_of_client < time.time() - 30) and clients_dict[clients][1] != "disconnected":
                 print(f"Client {info[0]} is disconnected")
                 clients_dict[clients][1] = "disconnected"
-                # update the cache_info that the server will be reading constantly to check if there is an issue with any client
-                # add a new key value pair to the cache_info dictionary
                 cache_info_stack.append(("Disconnection", info[0], "disconnected"))
     except RuntimeError as e:
         pass
@@ -261,7 +259,6 @@ def handle_client(connection, client_address):
     try:
         welcome_message = "Bienvenu sur le serveur!"
         connection.send(welcome_message.encode(FORMAT))
-        print('Nouveau client connecté depuis', client_address)
 
         while clients_dict[(connection, client_address)][1] == "connected":
             gestion_message(connection, client_address, server)
@@ -284,7 +281,6 @@ def start():
         thread2.start()
         print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
         # Handle inputs on the server side
-        """
         while (command := input("> ")):
             if command == "!list":
                 print(f"Number of connected players: {how_many_connected()}")
@@ -306,7 +302,6 @@ def start():
                 sys.exit(0)
         thread.join()
         thread2.join()
-        """
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
