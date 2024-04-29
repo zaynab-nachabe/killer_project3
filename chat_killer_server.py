@@ -55,62 +55,74 @@ def creation_socket(server):
     # Liaison du socket à l'adresse et au port spécifiés
     return sockets_list
 
-def gestion_message(sock, server_socket, sockets_list):
-    while True:
-        try:
-            client_message = sock.recv(1024).decode()
-            if client_message:
+def gestion_message(connection, client_address, server_socket):
+    global clients_dict
+    global cache_info_stack
+    global sockets_list
+    try:
+        client_message = connection.recv(1024).decode()
+        if client_message:
+            client_key = (connection, client_address)
+            if client_key in clients_dict and clients_dict[client_key][0] is None:
+                if client_message.startswith("pseudo="):
+                    pseudo = client_message.split("=")[1].strip()
+                    if pseudo in [client[0] for client in clients_dict.values()]:
+                        connection.sendall("Pseudo déjà pris!".encode(FORMAT))
+                    else:
+                        clients_dict[(connection, client_address)] = [pseudo, "connected", f"last-heartbeat: {time.time()}"]
+                        sockets_list.append(connection)
+                        connection.sendall("Pseudo reçu!".encode(FORMAT))
+                else:
+                    connection.sendall(b'Veuillez entrer votre pseudo sous le format : pseudo=PSEUDO')
+            else:
+                pseudo = clients_dict[(connection, client_address)][0]  # Retrieve pseudo from dictionary
                 if client_message == "$HEARTBEAT":
-                    clients_dict[2] = f"last-heartbeat:{time.time}"
-                    sock.sendall(b"heartbeat received\n")
-                print(f"Message du client {clients_dict[sock][0]} : {client_message}")
+                    clients_dict[connection] = [pseudo, "connected", f"last-heartbeat:{time.time()}"]
+                    connection.sendall(b"heartbeat received\n")
+                print(f"Message du client {pseudo} : {client_message}")
                 if client_message.startswith('@'):
                     dest_pseudo, message = client_message[1:].split(' ', 1)
                     dest_socket = None
                     for client_socket, val in clients_dict.items():
-                        pseudo = val[0]
-                        if pseudo == dest_pseudo and client_socket != sock:
-                            dest_socket = client_socket
+                        if val[0] == dest_pseudo and client_socket != connection:
+                            dest_socket = client_socket[0]
                             break
                     if dest_socket:
-                        dest_socket.sendall(f"{clients_dict[sock][0]} (privé): {message}\n".encode())
+                        dest_socket.sendall(f"{pseudo} (privé): {message}\n".encode())
                     else:
-                        sock.sendall(b"Le destinataire n'existe pas.\n")
+                        connection.sendall(b"Le destinataire n'existe pas.\n")
                 elif client_message.startswith('!'):
                     if client_message == "!DISCONNECT":
-                        sock.close()
-                        clients_dict[sock][1] = "disconnected"
-                        sockets_list.remove(sock)
+                        connection.close()
+                        clients_dict[(connection, client_address)][1] = "disconnected"
+                        sockets_list.remove((connection, client_address))
                     elif client_message == "!list":
-                        sock.sendall(f"Nombre de joueurs connectés: {how_many_connected()}\n".encode())
+                        connection.sendall(f"Nombre de joueurs connectés: {len(clients_dict)}\n".encode())
                         for client_socket, val in clients_dict.items():
-                            pseudo = val[0]
-                            sock.sendall(f"{pseudo} : {val[1]}\n".encode())
+                            connection.sendall(f"{val[0]} : {val[1]}\n".encode())
                     elif client_message == "!online_status":
                         for client_socket, val in clients_dict.items():
-                            pseudo = val[0]
-                            sock.sendall(f"Statut en ligne du joueur {pseudo}: {val[1]}\n".encode())
+                            connection.sendall(f"Statut en ligne du joueur {val[0]}: {val[1]}\n".encode())
                     elif client_message == "!last-heartbeats":
                         for client_socket, val in clients_dict.items():
-                            pseudo = val[0]
-                            sock.sendall(f"Joueur: {pseudo} - Dernier battement de coeur: {val[2]}\n".encode())
+                            connection.sendall(f"Joueur: {val[0]} - Dernier battement de coeur: {val[2]}\n".encode())
                     else:
-                        sock.sendall(b"Commande inconnue.\n")
+                        connection.sendall(b"Commande inconnue.\n")
                 else:
                     for client_socket, val in clients_dict.items():
-                        pseudo = val[0]
-                        if client_socket != server_socket and client_socket != sock:
-                            client_socket.sendall(f"{clients_dict[sock][0]}: {client_message}\n".encode())
-        except Exception as Erreur:
-            print("Erreur lors de la réception des données :", Erreur)
-            sock.close()
-            clients_dict[sock][1] = "fucked up" # c'est pas chatgpt qui écrirait ça hein
-            sockets_list.remove(sock)
+                        if client_socket != server_socket and client_socket != connection:
+                            client_socket[0].sendall(f"{pseudo}: {client_message}\n".encode())
+        else:
+            pass
+    except Exception as error:
+        print("Erreur lors de la réception des données :", error)
+        clients_dict[(connection, client_address)][1] = "fucked up"
+        if (connection, client_address) in sockets_list:
+            sockets_list.remove((connection, client_address))
 
 def generate_cookie():
     """Generate a unique cookie for a player"""
     return hashlib.sha256(os.urandom(32)).hexdigest()
-
 
 def cache_file(file_path):
     """Cache a file in the cache directory"""
@@ -127,7 +139,6 @@ def cache_file(file_path):
         print(f"Error caching file {file_path}: {e}")
 
     return cached_file_path
-
 
 def handle_client_connection(client_socket, client_address):
     """Handle communication with a client"""
@@ -232,25 +243,18 @@ def handle_issue():
 
 def handle_client(connection, client_address):
     global sockets_list
+    global clients_dict
     print(f"[NEW CONNECTION] {client_address} connected.")
     clients_dict[(connection, client_address)] = [None, "connected", f"last-heartbeat: {time.time()}"]
     # sockets_list = creation_socket(server)
     try:
         welcome_message = "Bienvenu sur le serveur!"
         connection.send(welcome_message.encode(FORMAT))
+        print('Nouveau client connecté depuis', client_address)
 
-        connected = True
-        while connected:
-            print('Nouveau client connecté depuis', client_address)
-            connection.sendall(b'Veuillez entrer votre pseudo sous le format : pseudo=PSEUDO')
-            pseudo = connection.recv(1024).decode().strip('=')[1]
-            if pseudo in [client[0] for client in clients_dict.values()]:
-                connection.sendall("Pseudo déjà pris!".encode(FORMAT))
-            clients_dict[(connection, client_address)][0] = pseudo
-            sockets_list.append(connection)
-            connection.sendall("Pseudo reçu!".encode(FORMAT))
-            gestion_message(connection, server, sockets_list)
-                
+        while clients_dict[(connection, client_address)][1] == "connected":
+            gestion_message(connection, client_address, server)
+
     except ConnectionResetError:
         print(f"[ERROR] Connection lost with {client_address}")
     finally:
@@ -281,7 +285,15 @@ def start():
             elif command == "!last-heartbeats":
                 print("The last heartbeats of each player is:")
                 for _, info in clients_dict.items():
-                    print(f"Player: {info[0]} - Last heartbeat: {info[2]}")
+                    print(f"Player: {info[0]} - {info[2]}")
+            elif command == "!shutdown":
+                broadcast(SHUTDOWN_MESSAGE)
+                for client in clients_dict.keys():
+                    client[0].close()
+                server.close()
+                sys.exit(0)
+        thread.join()
+        thread2.join()
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)

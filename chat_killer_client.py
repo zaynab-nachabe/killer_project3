@@ -148,6 +148,7 @@ def open_ChatWindow():
         if pid_ChatWindow == 0:
             print('child of chat seen by parent:', pid_ChatWindow, 'by os:', os.getpid())
             os.execl("/usr/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
+            # os.execl("/opt/homebrew/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
         else:
             print('parent pid of pid_ChatWindow:', os.getpid(),'of child:', pid_ChatWindow)
 
