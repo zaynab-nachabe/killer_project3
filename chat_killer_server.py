@@ -87,7 +87,6 @@ def gestion_message(connection, client_address, server_socket):
                 if client_message == "$HEARTBEAT":
                     clients_dict[connection] = [pseudo, "connected", f"last-heartbeat:{time.time()}"]
                     connection.sendall(b"heartbeat received\n")
-                print(f"{pseudo} : {client_message}")
                 if client_message.startswith('@'):
                     dest_pseudo, message = client_message[1:].split(' ', 1)
                     dest_socket = None
@@ -233,16 +232,18 @@ def broadcast(message):
 def check_heartbeat():
     global cache_info_stack
     global clients_dict
-    try:
-        for clients, info in clients_dict.items():
-            last_heartbeat_of_client = info[2].split(":")[1]
-            last_heartbeat_of_client = float(last_heartbeat_of_client)
-            if (last_heartbeat_of_client < time.time() - 30) and clients_dict[clients][1] != "disconnected":
-                print(f"Client {info[0]} is disconnected")
-                clients_dict[clients][1] = "disconnected"
-                cache_info_stack.append(("Disconnection", info[0], "disconnected"))
-    except RuntimeError as e:
-        pass
+    while True:
+        time.sleep(5)
+        try:
+            for clients, info in clients_dict.items():
+                last_heartbeat_of_client = info[2].split(":")[1]
+                last_heartbeat_of_client = float(last_heartbeat_of_client)
+                if (last_heartbeat_of_client < time.time() - 15) and clients_dict[clients][1] != "disconnected":
+                    print(f"Client {info[0]} is disconnected")
+                    clients_dict[clients][1] = "disconnected"
+                    cache_info_stack.append(("Disconnection", info[0], "disconnected"))
+        except RuntimeError as e:
+            pass
 
 def handle_issue():
     global cache_info_stack
@@ -270,38 +271,47 @@ def handle_client(connection, client_address):
         clients_dict[(connection, client_address)][1] = "disconnected"
         print(f"[DISCONNECTION] {client_address} disconnected.")
 
+def handle_server_input():
+    while True:
+        command = input("Enter a command: ")
+        if command == "!list":
+            print(f"Number of connected players: {how_many_connected()}")
+            for _, info in clients_dict.keys():
+                if info[1] == "connected":
+                    print(f"Player: {info[0]} - {info[1]}")
+        elif command == "!online_status":
+            print("Online status of players:")
+            for _, info in clients_dict.keys():
+                print(f"Player status: {info[1]}")
+        elif command == "!last-heartbeats":
+            print("The last heartbeats of each player is:")
+            for _, info in clients_dict.items():
+                print(f"Player: {info[0]} - {info[2]}")
+        elif command == "!shutdown":
+            broadcast(SHUTDOWN_MESSAGE)
+            for client in clients_dict.keys():
+                client[0].close()
+            server.close()
+            sys.exit(0)
+
 def start():
+    global clients_dict
     server.listen()
     print(f"[LISTENING] server is listening on {SERVER}")
+    thread2 = threading.Thread(target=check_heartbeat)
+    thread2.start()
+    thread3 = threading.Thread(target=handle_server_input)
+    thread3.start()
     while True:
         conn, addr = server.accept()
         thread = threading.Thread(target=handle_client, args=(conn, addr))
         thread.start()
-        thread2 = threading.Thread(target=check_heartbeat)
-        thread2.start()
-        print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
+        print(f"[ACTIVE CONNECTIONS] {len(clients_dict)}")
         # Handle inputs on the server side
-        while (command := input("> ")):
-            if command == "!list":
-                print(f"Number of connected players: {how_many_connected()}")
-                for _, info in clients_dict.keys():
-                    print(f"{info[0]} : {info[1]}")
-            elif command == "!online_status":
-                print("Online status of players:")
-                for _, info in clients_dict.keys():
-                    print(f"Player status: {info[1]}")
-            elif command == "!last-heartbeats":
-                print("The last heartbeats of each player is:")
-                for _, info in clients_dict.items():
-                    print(f"Player: {info[0]} - {info[2]}")
-            elif command == "!shutdown":
-                broadcast(SHUTDOWN_MESSAGE)
-                for client in clients_dict.keys():
-                    client[0].close()
-                server.close()
-                sys.exit(0)
+        """
         thread.join()
         thread2.join()
+        """
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)

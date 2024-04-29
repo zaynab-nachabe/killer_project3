@@ -151,7 +151,7 @@ def open_ChatWindow():
     pid_ChatWindow = os.fork()
     try:
         if pid_ChatWindow == 0:
-            os.execl("/usr/bin/xterm", "xterm", "-e", f"cat > /var/tmp/{unique_FIFO}")
+            os.execl("/opt/homebrew/bin/xterm", "xterm", "-e", f"cat > /var/tmp/{unique_FIFO}")
     except FileNotFoundError:
         print("xterm not found, please ensure it's installed and the path is correct.")
 
@@ -161,9 +161,18 @@ def open_GameLobby():
     pid_GameLobby = os.fork()
     try:
         if pid_GameLobby == 0:
-            os.execl("/usr/bin/xterm", "xterm", "-e", f"tail -f /var/tmp/{unique_LOG}")
+            os.execl("/opt/homebrew/bin/xterm", "xterm", "-e", f"tail -f /var/tmp/{unique_LOG}")
     except FileNotFoundError:
         print("xterm not found, please ensure it's installed and the path is correct.")
+
+def heartbeat_client():
+    global client
+    try:
+        while True:
+            time.sleep(30)
+            send("$HEARTBEAT")
+    except KeyboardInterrupt:
+        print("Ctrl+C detected. Ending heartbeat ...")
 
 def main():
     global unique_FIFO
@@ -192,6 +201,9 @@ def main():
     FIFO_to_Server_Thread = threading.Thread(target=FIFO_to_Server, args=(fdw,fdr))
     FIFO_to_Server_Thread.start()
 
+    # heartbeart_thread = threading.Thread(target=heartbeat_client)
+    # heartbeart_thread.start()
+
     # thread for writing server messages to log
     listening_Thread = threading.Thread(target=receive, args=(fdr,))
     listening_Thread.start()
@@ -207,5 +219,6 @@ def main():
     os.remove(f'/var/tmp/{unique_LOG}')
     time.sleep(2)
     print("Tmp files deleted.")
+
 if __name__ == "__main__":
     main()
