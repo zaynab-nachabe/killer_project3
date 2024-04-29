@@ -105,7 +105,7 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
                 connect_server()
                 FIFO_to_Server(fifo, log)
             else:
-                unexpectedLogMsg = "Sorry, please enter either '!close' or '!reconnect'.\n"
+                unexpectedLogMsg = "\nSorry, please enter either '!close' or '!reconnect'.\n"
                 os.write(log, unexpectedLogMsg.encode(FORMAT))
                 continue
         sys.exit(0)
@@ -161,7 +161,6 @@ def open_GameLobby():
     pid_GameLobby = os.fork()
     try:
         if pid_GameLobby == 0:
-            print('child pid =', pid_GameLobby)
             os.execl("/usr/bin/xterm", "xterm", "-e", f"tail -f /var/tmp/{unique_LOG}")
     except FileNotFoundError:
         print("xterm not found, please ensure it's installed and the path is correct.")
