@@ -95,7 +95,8 @@ def gestion_message(connection, client_address, server_socket):
                     if client_message == "!DISCONNECT":
                         connection.close()
                         clients_dict[(connection, client_address)][1] = "disconnected"
-                        sockets_list.remove((connection, client_address))
+                        if (connection, client_address) in sockets_list:
+                            sockets_list.remove((connection, client_address))
                     elif client_message == "!list":
                         connection.sendall(f"Nombre de joueurs connectés: {len(clients_dict)}\n".encode())
                         for client_socket, val in clients_dict.items():
