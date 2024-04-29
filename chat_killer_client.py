@@ -11,6 +11,7 @@ import select
 import errno
 import threading
 import signal
+import time
 
 HEADER = 64
 PORT = 5050
@@ -20,7 +21,10 @@ FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
 
 client = None
-# client.connect(ADDR)
+
+unique_pid = os.getpid()
+unique_FIFO = f"killer{str(unique_pid)}.fifo"
+unique_LOG = f"killer{str(unique_pid)}.log"
 
 def connect_server():
     global ADDR
@@ -142,41 +146,41 @@ pid_ChatWindow = None
 pid_GameLobby = None
 
 def open_ChatWindow():
+    global unique_FIFO
     global pid_ChatWindow
     pid_ChatWindow = os.fork()
     try:
         if pid_ChatWindow == 0:
-            print('child of chat seen by parent:', pid_ChatWindow, 'by os:', os.getpid())
-            os.execl("/usr/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
-        else:
-            print('parent pid of pid_ChatWindow:', os.getpid(),'of child:', pid_ChatWindow)
-
+            os.execl("/usr/bin/xterm", "xterm", "-e", f"cat > /var/tmp/{unique_FIFO}")
     except FileNotFoundError:
         print("xterm not found, please ensure it's installed and the path is correct.")
 
 def open_GameLobby():
+    global unique_LOG
     global pid_GameLobby
     pid_GameLobby = os.fork()
     try:
         if pid_GameLobby == 0:
             print('child pid =', pid_GameLobby)
-            os.execl("/usr/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
+            os.execl("/usr/bin/xterm", "xterm", "-e", f"tail -f /var/tmp/{unique_LOG}")
     except FileNotFoundError:
         print("xterm not found, please ensure it's installed and the path is correct.")
 
 def main():
+    global unique_FIFO
+    global unique_LOG
     connect_server()
     # create files for game
     try:
-        fdr = os.open("/var/tmp/killer.log", os.O_RDWR|os.O_APPEND|os.O_TRUNC|os.O_CREAT)
+        fdr = os.open(f"/var/tmp/{unique_LOG}", os.O_RDWR|os.O_APPEND|os.O_TRUNC|os.O_CREAT)
     except OSError as err:
-        print("Erreur creation log \"/var/tmp/killer.log\": (%d)"%(err.errno),file=sys.stderr)
+        print(f"Erreur creation log \"/var/tmp/{unique_LOG}\": (%d)"%(err.errno),file=sys.stderr)
     try:
-        os.mkfifo("/var/tmp/killer.fifo")
-        fdw = os.open("/var/tmp/killer.fifo", os.O_RDWR)
+        os.mkfifo(f"/var/tmp/{unique_FIFO}")
+        fdw = os.open(f"/var/tmp/{unique_FIFO}", os.O_RDWR)
     except OSError as err:
-        print("Erreur creation fifo \"/var/tmp/killer.fifo\": (%d)"%(err.errno),file=sys.stderr)
-        fdw = os.open("/var/tmp/killer.fifo", os.O_RDWR)
+        print(f"Erreur creation fifo \"/var/tmp/{unique_FIFO}\": (%d)"%(err.errno),file=sys.stderr)
+        fdw = os.open(f"/var/tmp/{unique_FIFO}", os.O_RDWR)
 
     # Write connection info to log
     log_boot_msg = "Connected to the server. \nType messages and commands in killer.fifo terminal.\nYou must choose a username. Please make your choice with the following format: \n'pseudo=example'\nOtherwise, enter '!DISCONNECT' to leave the server.\n"
@@ -195,8 +199,14 @@ def main():
 
     FIFO_to_Server_Thread.join()
     listening_Thread.join()
-
+    # close the open files
     os.close(fdr)
     os.close(fdw)
+    # delete temporary files
+    print("Cleaning up files ...")
+    os.remove(f'/var/tmp/{unique_FIFO}')
+    os.remove(f'/var/tmp/{unique_LOG}')
+    time.sleep(2)
+    print("Tmp files deleted.")
 if __name__ == "__main__":
     main()
