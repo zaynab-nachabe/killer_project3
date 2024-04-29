@@ -10,6 +10,7 @@ import os
 import select
 import errno
 import threading
+import signal
 
 HEADER = 64
 PORT = 5050
@@ -18,19 +19,18 @@ ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
 
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect(ADDR)
+client = None
+# client.connect(ADDR)
 
-# signal handlers for each xterm
-def sigchld_chat_handler(signum, frame):
-    global chat_window_closed
-    print("signal caught, xterm for chat closed.")
-    chat_window_closed = True
-        
-def sigchld_fifo_handler(signum, frame):
-    global chat_window_closed
-    print("signal caught, xterm for chat closed.")
-    chat_window_closed = True
+def connect_server():
+    global ADDR
+    global client
+    try:
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client.connect(ADDR)
+    except ConnectionRefusedError:
+        print('Connection Refused')
+
 
 def send(msg):
     message = msg.encode(FORMAT)
@@ -83,23 +83,89 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
     finally:
         print("Disconnecting from server...")
         client.close()
+        disconnectLogMessage = "You've disconnected from the server. If you would like to reconnect, enter '!reconnect'.\nOtherwise, enter '!close'.\n"
+        os.write(log, disconnectLogMessage.encode(FORMAT))
+        closed_flag = False
+        while not closed_flag:
+            select.select([fifo], [], []) # Wait for user input to FIFO
+            close_dc_msg = os.read(fifo, 2048)
+            close_dc_msg = close_dc_msg.decode(FORMAT).strip('\n')
+            if close_dc_msg == "!close":
+                print("Closing... Good Bye !")
+                closingLogMsg = "Closing... Good Bye !\n"
+                os.write(log, closingLogMsg.encode(FORMAT))
+                closed_flag = True
+            elif close_dc_msg == "!reconnect":
+                reconnectingLogMsg = "Reestablishing Connection...\n"
+                os.write(log, reconnectingLogMsg.encode(FORMAT))
+                connect_server()
+                FIFO_to_Server(fifo, log)
+            else:
+                unexpectedLogMsg = "Sorry, please enter either '!close' or '!reconnect'.\n"
+                os.write(log, unexpectedLogMsg.encode(FORMAT))
+                continue
         sys.exit(0)
 
 def receive(fd):
     print("listening thread started")
     try:
         while True:
-            select.select([client], [], []) # Wait for server
-            server_message = client.recv(2048).decode(FORMAT) + '\n'
+            try:
+                select.select([client], [], []) # Wait for server
+            except ValueError:
+                break
+            try:
+                server_message = client.recv(2048).decode(FORMAT) + '\n'
+            except OSError:
+                if OSError.errno == 9:
+                    print("Socket closed...")
+                    break
             os.write(fd, server_message.encode(FORMAT))
     except KeyboardInterrupt:
         print("Ctrl+C detected. Ending listening ...")
 
-# create flags for reopening the xterms
-chat_window_closed = False
-game_lobby_closed = False
+# sigchld handler for both , gets the pid associated with the caught SIGCHLD and reopens it's xterm
+def sigchld_xterm_handler(signum, frame):
+    global pid_ChatWindow
+    global pid_GameLobby
+    print("SIGCHLD received, processing ...")
+    caught_pid = os.wait()
+    if caught_pid[0] == pid_GameLobby:
+        open_GameLobby()
+    elif caught_pid[0] == pid_ChatWindow:
+        open_ChatWindow()
+    
+
+signal.signal(signal.SIGCHLD, handler=sigchld_xterm_handler)
+
+pid_ChatWindow = None
+pid_GameLobby = None
+
+def open_ChatWindow():
+    global pid_ChatWindow
+    pid_ChatWindow = os.fork()
+    try:
+        if pid_ChatWindow == 0:
+            print('child of chat seen by parent:', pid_ChatWindow, 'by os:', os.getpid())
+            os.execl("/usr/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
+        else:
+            print('parent pid of pid_ChatWindow:', os.getpid(),'of child:', pid_ChatWindow)
+
+    except FileNotFoundError:
+        print("xterm not found, please ensure it's installed and the path is correct.")
+
+def open_GameLobby():
+    global pid_GameLobby
+    pid_GameLobby = os.fork()
+    try:
+        if pid_GameLobby == 0:
+            print('child pid =', pid_GameLobby)
+            os.execl("/usr/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
+    except FileNotFoundError:
+        print("xterm not found, please ensure it's installed and the path is correct.")
 
 def main():
+    connect_server()
     # create files for game
     try:
         fdr = os.open("/var/tmp/killer.log", os.O_RDWR|os.O_APPEND|os.O_TRUNC|os.O_CREAT)
@@ -116,23 +182,9 @@ def main():
     log_boot_msg = "Connected to the server. \nType messages and commands in killer.fifo terminal.\nYou must choose a username. Please make your choice with the following format: \n'pseudo=example'\nOtherwise, enter '!DISCONNECT' to leave the server.\n"
     os.write(fdr, log_boot_msg.encode(FORMAT))
 
-    # Open the game windows and conserve pids
-
-    pid_ChatWindow = os.fork()
-    try:
-        if pid_ChatWindow == 0:
-            os.execl("/usr/bin/xterm", "xterm", "-e", "cat > /var/tmp/killer.fifo")
-    except FileNotFoundError:
-        print("xterm not found, please ensure it's installed and the path is correct.")
-
-    
-    pid_GameLobby = os.fork()
-    try:
-        if pid_GameLobby == 0:
-            os.execl("/usr/bin/xterm", "xterm", "-e", "tail -f /var/tmp/killer.log")
-    except FileNotFoundError:
-        print("xterm not found, please ensure it's installed and the path is correct.")
-
+    # thread for xterm crash tolerance
+    open_ChatWindow()
+    open_GameLobby()
     # thread for sending to server
     FIFO_to_Server_Thread = threading.Thread(target=FIFO_to_Server, args=(fdw,fdr))
     FIFO_to_Server_Thread.start()
@@ -141,5 +193,10 @@ def main():
     listening_Thread = threading.Thread(target=receive, args=(fdr,))
     listening_Thread.start()
 
+    FIFO_to_Server_Thread.join()
+    listening_Thread.join()
+
+    os.close(fdr)
+    os.close(fdw)
 if __name__ == "__main__":
     main()
