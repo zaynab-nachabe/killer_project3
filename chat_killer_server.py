@@ -61,6 +61,7 @@ def gestion_message(connection, client_address, server_socket):
     global sockets_list
     try:
         client_message = connection.recv(1024).decode()
+        
         if client_message:
             client_key = (connection, client_address)
             if client_key in clients_dict and clients_dict[client_key][0] is None:
@@ -73,7 +74,7 @@ def gestion_message(connection, client_address, server_socket):
                         sockets_list.append(connection)
                         connection.sendall("Pseudo reçu!".encode(FORMAT))
                 else:
-                    connection.sendall(b'Veuillez entrer votre pseudo sous le format : pseudo=PSEUDO')
+                    pass
             else:
                 pseudo = clients_dict[(connection, client_address)][0]  # Retrieve pseudo from dictionary
                 if client_message == "$HEARTBEAT":
@@ -201,7 +202,7 @@ def signal_handler(sig, frame):
     print("\n[SHUTDOWN] Server is shutting down...")
     broadcast(SHUTDOWN_MESSAGE)
     for client in clients_dict.values():
-        client.close()
+        client[0].close()
     server.close()
     sys.exit(0)
 
