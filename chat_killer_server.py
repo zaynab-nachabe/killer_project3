@@ -87,7 +87,7 @@ def gestion_message(connection, client_address, server_socket):
                 if client_message == "$HEARTBEAT":
                     clients_dict[connection] = [pseudo, "connected", f"last-heartbeat:{time.time()}"]
                     connection.sendall(b"heartbeat received\n")
-                print(f"Message du client {pseudo} : {client_message}\n")
+                print(f"Message du client {pseudo} : {client_message}")
                 if client_message.startswith('@'):
                     dest_pseudo, message = client_message[1:].split(' ', 1)
                     dest_socket = None
@@ -233,15 +233,18 @@ def broadcast(message):
 def check_heartbeat():
     global cache_info_stack
     global clients_dict
-    for clients, info in clients_dict.items():
-        last_heartbeat_of_client = info[2].split(":")[1]
-        last_heartbeat_of_client = float(last_heartbeat_of_client)
-        if (last_heartbeat_of_client < time.time() - 30) and clients_dict[clients][1] != "disconnected":
-            print(f"Client {info[0]} is disconnected")
-            clients_dict[clients][1] = "disconnected"
-            # update the cache_info that the server will be reading constantly to check if there is an issue with any client
-            # add a new key value pair to the cache_info dictionary
-            cache_info_stack.append(("Disconnection", info[0], "disconnected"))
+    try:
+        for clients, info in clients_dict.items():
+            last_heartbeat_of_client = info[2].split(":")[1]
+            last_heartbeat_of_client = float(last_heartbeat_of_client)
+            if (last_heartbeat_of_client < time.time() - 30) and clients_dict[clients][1] != "disconnected":
+                print(f"Client {info[0]} is disconnected")
+                clients_dict[clients][1] = "disconnected"
+                # update the cache_info that the server will be reading constantly to check if there is an issue with any client
+                # add a new key value pair to the cache_info dictionary
+                cache_info_stack.append(("Disconnection", info[0], "disconnected"))
+    except RuntimeError as e:
+        pass
 
 def handle_issue():
     global cache_info_stack
