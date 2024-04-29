@@ -55,54 +55,62 @@ def creation_socket(server):
     return sockets_list
 
 def gestion_message(sock, server_socket, sockets_list):
-    try:
-        client_message = sock.recv(1024).decode()
-        if client_message:
-            if client_message == "$HEARTBEAT":
-                clients_dict[2] = f"last-heartbeat: {time.time}"
-            print(f"Message du client {clients_dict[sock][0]} : {client_message}")
-            if client_message.startswith('@'):
-                dest_pseudo, message = client_message[1:].split(' ', 1)
-                dest_socket = None
-                for client_socket, val in clients_dict.items():
-                    pseudo = val[0]
-                    if pseudo == dest_pseudo and client_socket != sock:
-                        dest_socket = client_socket
-                        break
-                if dest_socket:
-                    dest_socket.sendall(f"{clients_dict[sock][0]} (privé): {message}\n".encode())
+    while True:
+        try:
+            client_message = sock.recv(1024).decode()
+            if client_message:
+                if client_message == "$HEARTBEAT":
+                    clients_dict[2] = f"last-heartbeat:{time.time}"
+                    sock.sendall(b"heartbeat received\n")
+                print(f"Message du client {clients_dict[sock][0]} : {client_message}")
+                if client_message.startswith('@'):
+                    dest_pseudo, message = client_message[1:].split(' ', 1)
+                    dest_socket = None
+                    for client_socket, val in clients_dict.items():
+                        pseudo = val[0]
+                        if pseudo == dest_pseudo and client_socket != sock:
+                            dest_socket = client_socket
+                            break
+                    if dest_socket:
+                        dest_socket.sendall(f"{clients_dict[sock][0]} (privé): {message}\n".encode())
+                    else:
+                        sock.sendall(b"Le destinataire n'existe pas.\n")
+                elif client_message.startswith('!'):
+                    if client_message == "!DISCONNECT":
+                        sock.close()
+                        clients_dict[sock][1] = "disconnected"
+                        sockets_list.remove(sock)
+                    elif client_message == "!list":
+                        sock.sendall(f"Nombre de joueurs connectés: {how_many_connected()}\n".encode())
+                        for client_socket, val in clients_dict.items():
+                            pseudo = val[0]
+                            sock.sendall(f"{pseudo} : {val[1]}\n".encode())
+                    elif client_message == "!online_status":
+                        for client_socket, val in clients_dict.items():
+                            pseudo = val[0]
+                            sock.sendall(f"Statut en ligne du joueur {pseudo}: {val[1]}\n".encode())
+                    elif client_message == "!last-heartbeats":
+                        for client_socket, val in clients_dict.items():
+                            pseudo = val[0]
+                            sock.sendall(f"Joueur: {pseudo} - Dernier battement de coeur: {val[2]}\n".encode())
+                    else:
+                        sock.sendall(b"Commande inconnue.\n")
                 else:
-                    sock.sendall(b"Le destinataire n'existe pas.\n")
-            elif client_message.startswith('!'):
-                if client_message == "!DISCONNECT":
-                    sock.close()
-                    clients_dict[sock][1] = "disconnected"
-                    sockets_list.remove(sock)
-                elif client_message == "!list":
-                    sock.sendall(f"Nombre de joueurs connectés: {how_many_connected()}\n".encode())
                     for client_socket, val in clients_dict.items():
                         pseudo = val[0]
-                        sock.sendall(f"{pseudo} : {val[1]}\n".encode())
-                elif client_message == "!online_status":
-                    for client_socket, val in clients_dict.items():
-                        pseudo = val[0]
-                        sock.sendall(f"Statut en ligne du joueur {pseudo}: {val[1]}\n".encode())
-                elif client_message == "!last-heartbeats":
-                    for client_socket, val in clients_dict.items():
-                        pseudo = val[0]
-                        sock.sendall(f"Joueur: {pseudo} - Dernier battement de coeur: {val[2]}\n".encode())
-                else:
-                    sock.sendall(b"Commande inconnue.\n")
-            else:
-                for client_socket, val in clients_dict.items():
-                    pseudo = val[0]
-                    if client_socket != server_socket and client_socket != sock:
-                        client_socket.sendall(f"{clients_dict[sock][0]}: {client_message}\n".encode())
-    except Exception as Erreur:
-        print("Erreur lors de la réception des données :", Erreur)
-        sock.close()
-        clients_dict[sock][1] = "fucked up" # c'est pas chatgpt qui écrirait ça hein
-        sockets_list.remove(sock)
+                        if client_socket != server_socket and client_socket != sock:
+                            client_socket.sendall(f"{clients_dict[sock][0]}: {client_message}\n".encode())
+        except Exception as Erreur:
+            print("Erreur lors de la réception des données :", Erreur)
+            sock.close()
+            clients_dict[sock][1] = "fucked up" # c'est pas chatgpt qui écrirait ça hein
+            sockets_list.remove(sock)
+
+def check_heartbeat(clients_dict):
+    while True:
+        for clients, info in clients_dict.items():
+            last_heartbeat_of_client = info[2].strip(":")
+
 
 def handle_client(connection, client_address):
     global sockets_list
@@ -158,12 +166,4 @@ def start():
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     print("[STARTING] server is starting...")
-    pid = os.fork():
-    if pid == 0:
-        signal.signal(signal.SIGUSR1, signal_handler)
-        while True:
-            time.sleep(10)
-            for client, info in clients_dict.items():
-                if info[1] == "connected":
-                    client.sendall(b"$HEARTBEAT")
     start()
