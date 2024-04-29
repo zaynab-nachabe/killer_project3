@@ -1,6 +1,5 @@
 import socket
 import os
-import hashlib
 import commands
 #import threading #maybe we can use it maybe not
 
@@ -134,8 +133,8 @@ def broadcast_to_client(client_address, message):
 
 def broadcast(message):
     """Send a message to all connected clients."""
-    for client in clients_dict.values():
-        client.send(message.encode(FORMAT)) # There is an issue here. We don't handle the format correctly.
+    for client, info in clients_dict.items():
+        client[0].send(message.encode(FORMAT))
 
 def main():
     # Create a TCP/IP socket
