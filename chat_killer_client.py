@@ -20,6 +20,7 @@ ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
 
+# Initialize the client variable to be changed later by the connect function, then used by other functions
 client = None
 
 unique_pid = os.getpid()
@@ -35,6 +36,15 @@ def connect_server():
     except ConnectionRefusedError:
         print('Connection Refused')
 
+def heartbeat_client():
+    global client
+    try:
+        while True:
+            time.sleep(10)
+            send("$HEARTBEAT")
+            print("Sent Heartbeat")
+    except KeyboardInterrupt:
+        print("Ctrl+C detected. Ending heartbeat ...")
 
 def send(msg):
     message = msg.encode(FORMAT)
@@ -151,7 +161,10 @@ def open_ChatWindow():
     pid_ChatWindow = os.fork()
     try:
         if pid_ChatWindow == 0:
-            os.execl("/opt/homebrew/bin/xterm", "xterm", "-e", f"cat > /var/tmp/{unique_FIFO}")
+            try:
+                os.execl("/usr/bin/xterm", "xterm", "-e", f"cat > /var/tmp/{unique_FIFO}")
+            except:
+                os.execl("/opt/homebrew/bin/xterm", "xterm", "-e", f"cat > /var/tmp/{unique_FIFO}")
     except FileNotFoundError:
         print("xterm not found, please ensure it's installed and the path is correct.")
 
@@ -161,18 +174,12 @@ def open_GameLobby():
     pid_GameLobby = os.fork()
     try:
         if pid_GameLobby == 0:
-            os.execl("/opt/homebrew/bin/xterm", "xterm", "-e", f"tail -f /var/tmp/{unique_LOG}")
+            try:
+                os.execl("/usr/bin/xterm", "xterm", "-e", f"tail -f /var/tmp/{unique_LOG}")
+            except:
+                os.execl("/opt/homebrew/bin/xterm", "xterm", "-e", f"cat > /var/tmp/{unique_FIFO}")
     except FileNotFoundError:
         print("xterm not found, please ensure it's installed and the path is correct.")
-
-def heartbeat_client():
-    global client
-    try:
-        while True:
-            time.sleep(30)
-            send("$HEARTBEAT")
-    except KeyboardInterrupt:
-        print("Ctrl+C detected. Ending heartbeat ...")
 
 def main():
     global unique_FIFO
@@ -201,8 +208,8 @@ def main():
     FIFO_to_Server_Thread = threading.Thread(target=FIFO_to_Server, args=(fdw,fdr))
     FIFO_to_Server_Thread.start()
 
-    # heartbeart_thread = threading.Thread(target=heartbeat_client)
-    # heartbeart_thread.start()
+    heartbeart_Thread = threading.Thread(target=heartbeat_client, args=())
+    heartbeart_Thread.start()
 
     # thread for writing server messages to log
     listening_Thread = threading.Thread(target=receive, args=(fdr,))
@@ -210,6 +217,7 @@ def main():
 
     FIFO_to_Server_Thread.join()
     listening_Thread.join()
+    heartbeart_Thread.join()
     # close the open files
     os.close(fdr)
     os.close(fdw)
