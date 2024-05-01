@@ -168,12 +168,15 @@ def check_heartbeat():
         time.sleep(5)
         try:
             for clients, info in clients_dict.items():
-                last_heartbeat_of_client = info[2].split(":")[1]
-                last_heartbeat_of_client = float(last_heartbeat_of_client)
-                if (last_heartbeat_of_client < time.time() - 15) and clients_dict[clients][1] != "disconnected":
-                    print(f"Client {info[0]} is disconnected")
-                    clients_dict[clients][1] = "disconnected"
-                    cache_info_stack.append(("Disconnection", info[0], "disconnected"))
+                if info[0] is None:
+                    continue
+                else:
+                    last_heartbeat_of_client = info[2].split(":")[1]
+                    last_heartbeat_of_client = float(last_heartbeat_of_client)
+                    if (last_heartbeat_of_client < time.time() - 15) and clients_dict[clients][1] != "disconnected":
+                        print(f"Client {info[0]} is disconnected")
+                        clients_dict[clients][1] = "disconnected"
+                        cache_info_stack.append(("Disconnection", info[0], "disconnected"))
         except RuntimeError as e:
             pass
 
