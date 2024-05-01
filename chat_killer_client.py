@@ -208,8 +208,8 @@ def main():
     FIFO_to_Server_Thread = threading.Thread(target=FIFO_to_Server, args=(fdw,fdr))
     FIFO_to_Server_Thread.start()
 
-    heartbeart_Thread = threading.Thread(target=heartbeat_client, args=())
-    heartbeart_Thread.start()
+    heartbeart_thread = threading.Thread(target=heartbeat_client)
+    heartbeart_thread.start()
 
     # thread for writing server messages to log
     listening_Thread = threading.Thread(target=receive, args=(fdr,))
