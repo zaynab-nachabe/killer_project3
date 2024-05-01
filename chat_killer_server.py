@@ -148,61 +148,6 @@ def cache_file(file_path):
 
     return cached_file_path
 
-def handle_client_connection(client_socket, client_address):
-    """Handle communication with a client"""
-    print(f"Connection established with {client_address}")
-
-    try:
-        # Receive the client's pseudo name
-        player_pseudo = client_socket.recv(1024).decode().strip()
-        # Add the player to the dictionary of connected players
-        players[player_pseudo] = client_socket
-
-        # Main loop for receiving and processing client messages
-        while True:
-            # Receive data from the client
-            data = client_socket.recv(1024).decode().strip()
-            if not data:
-                break  # Exit the loop if no data is received
-
-            # Parse the received command
-            command_parts = data.split(maxsplit=1)
-            command = command_parts[0]
-            arguments = command_parts[1] if len(command_parts) > 1 else None
-
-            # Handle different commands
-            match command:
-                case "!start":
-                    commands.start_game()
-                case command if command.startswith("@") and command.endswith("!ban"):
-                    commands.ban_player(command[1:])
-                case command if command.startswith("@") and command.endswith("!suspend"):
-                    commands.suspend_player(command[1:])
-                case command if command.startswith("@") and command.endswith("!forgive"):
-                    commands.forgive_player(command[1:])
-                case "!broadcast_file":
-                    commands.broadcast_file(arguments)
-                case command if command.startswith("@") and command.endswith("!send_file"):
-                    commands.send_file(client_socket, arguments)
-                case "!list":
-                    commands.list_players()
-                case "!reconnect":
-                    commands.reconnect_player(client_socket)
-                case _:
-                    # Handle other types of messages (not commands)
-                    commands.handle_chat_message(data)
-
-    except Exception as e:
-        print(f"Error handling client {client_address}: {e}")
-
-    finally:
-        # Remove the client from the dictionary of connected players
-        if player_pseudo in players:
-            del players[player_pseudo]
-        # Close the client socket when done
-        client_socket.close()
-        print(f"Connection with {client_address} closed")
-
 def signal_handler(sig, frame):
     """Handle graceful shutdown on SIGINT."""
     print("\n[SHUTDOWN] Server is shutting down...")
@@ -215,19 +160,6 @@ def signal_handler(sig, frame):
 def how_many_players():
     """Return the number of connected players."""
     return len(players)
-
-def broadcast_to_client(client_address, message):
-    """Send a message to a specific connected client."""
-    client = clients_dict.get(client_address)
-    if client:
-        client.send(message.encode(FORMAT))
-    else:
-        print(f"[ERROR] Client {client_address} not found.")
-
-def broadcast(message):
-    """Send a message to all connected clients."""
-    for client, info in clients_dict.items():
-        client[0].send(message.encode(FORMAT))
 
 def check_heartbeat():
     global cache_info_stack
