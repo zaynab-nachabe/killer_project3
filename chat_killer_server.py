@@ -160,7 +160,7 @@ def signal_handler(sig, frame):
 def how_many_players():
     """Return the number of connected players."""
     return len(players)
-
+"""
 def check_heartbeat():
     global cache_info_stack
     global clients_dict
@@ -179,7 +179,7 @@ def check_heartbeat():
                         cache_info_stack.append(("Disconnection", info[0], "disconnected"))
         except RuntimeError as e:
             pass
-
+"""
 def handle_issue():
     global cache_info_stack
     issue = cache_info_stack.pop()
