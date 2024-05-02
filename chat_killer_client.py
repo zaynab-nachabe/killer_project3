@@ -22,7 +22,14 @@ DISCONNECT_MESSAGE = "!DISCONNECT"
 
 # Initialize the client variable to be changed later by the connect function, then used by other functions
 client = None
+# Flag for when the user chooses to close after a disconnect through the FIFO, changing logic of SIGCHLD handling
+user_Closed = False
 
+# Initialize pid variables for xterms, to be changed dynamically to correct values
+pid_ChatWindow = None
+pid_GameLobby = None
+
+# Retrieve information for file names
 unique_pid = os.getpid()
 unique_FIFO = f"killer{str(unique_pid)}.fifo"
 unique_LOG = f"killer{str(unique_pid)}.log"
@@ -35,7 +42,7 @@ def connect_server():
         client.connect(ADDR)
     except ConnectionRefusedError:
         print('Connection Refused')
-
+"""
 def heartbeat_client():
     global client
     try:
@@ -45,7 +52,7 @@ def heartbeat_client():
             print("Sent Heartbeat")
     except KeyboardInterrupt:
         print("Ctrl+C detected. Ending heartbeat ...")
-
+"""
 def send(msg):
     message = msg.encode(FORMAT)
     msg_length = len(message)
@@ -65,7 +72,7 @@ def create_cookie_dir(pseudo): # creates the cookie file for a specific pseudo a
         print(f"Erreur creation cookie \"/var/tmp/{pseudo}/cookie\": (%d)"%(err.errno),file=sys.stderr)
 
 def FIFO_to_Server(fifo, log): # function handling the user inputs to send to server through a FIFO
-    print("reading thread started")
+    global user_Closed
     try:
         pseudo_chosen = False
         while True or not pseudo_chosen: # Continues to listen even if no data to send because of invalid inputs from user
@@ -108,6 +115,7 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
                 print("Closing... Good Bye !")
                 closingLogMsg = "Closing... Good Bye !\n"
                 os.write(log, closingLogMsg.encode(FORMAT))
+                user_Closed = True
                 closed_flag = True
             elif close_dc_msg == "!reconnect":
                 reconnectingLogMsg = "Reestablishing Connection...\n"
@@ -118,10 +126,8 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
                 unexpectedLogMsg = "\nSorry, please enter either '!close' or '!reconnect'.\n"
                 os.write(log, unexpectedLogMsg.encode(FORMAT))
                 continue
-        sys.exit(0)
-
+        
 def receive(fd):
-    print("listening thread started")
     try:
         while True:
             try:
@@ -135,26 +141,20 @@ def receive(fd):
                     print("Socket closed...")
                     break
             os.write(fd, server_message.encode(FORMAT))
-    except KeyboardInterrupt:
-        print("Ctrl+C detected. Ending listening ...")
+    except Exception:
+        print('Exception occured for receive function.')
 
-# sigchld handler for both , gets the pid associated with the caught SIGCHLD and reopens it's xterm
+# sigchld handler for both xterms, gets the pid associated with the caught SIGCHLD and reopens the correct xterm
 def sigchld_xterm_handler(signum, frame):
     global pid_ChatWindow
     global pid_GameLobby
-    print("SIGCHLD received, processing ...")
+    print("One of the terminals was closed, reopening ...")
     caught_pid = os.wait()
     if caught_pid[0] == pid_GameLobby:
         open_GameLobby()
     elif caught_pid[0] == pid_ChatWindow:
         open_ChatWindow()
     
-
-signal.signal(signal.SIGCHLD, handler=sigchld_xterm_handler)
-
-pid_ChatWindow = None
-pid_GameLobby = None
-
 def open_ChatWindow():
     global unique_FIFO
     global pid_ChatWindow
@@ -181,9 +181,35 @@ def open_GameLobby():
     except FileNotFoundError:
         print("xterm not found, please ensure it's installed and the path is correct.")
 
+# General clean up function for the created files
+def client_Cleanup():
+    global unique_FIFO
+    global unique_LOG
+    global pid_ChatWindow
+    global pid_GameLobby
+    # close xterms
+    os.kill(pid_ChatWindow, signal.SIGTERM)
+    os.kill(pid_GameLobby, signal.SIGTERM)
+    # delete temporary files
+    print("Cleaning up files ...")
+    os.remove(f'/var/tmp/{unique_FIFO}')
+    os.remove(f'/var/tmp/{unique_LOG}')
+    print("Temporary files deleted.")
+    sys.exit(0)
+
+# terminate gracefully if there is a ctrl-c, handles signal
+def gracefulclean_signalhandler(signum, frame):
+    signal.signal(signal.SIGCLD, signal.SIG_DFL)
+    print(f"\nUnexpected SIGINT received, cleaning up and exiting...")
+    client_Cleanup()
+
 def main():
     global unique_FIFO
     global unique_LOG
+
+    signal.signal(signal.SIGCHLD, sigchld_xterm_handler)
+    signal.signal(signal.SIGINT, gracefulclean_signalhandler)
+
     connect_server()
     # create files for game
     try:
@@ -196,7 +222,7 @@ def main():
     except OSError as err:
         print(f"Erreur creation fifo \"/var/tmp/{unique_FIFO}\": (%d)"%(err.errno),file=sys.stderr)
         fdw = os.open(f"/var/tmp/{unique_FIFO}", os.O_RDWR)
-
+    print("Xterm terminals opened. Please interact with the program through them.")
     # Write connection info to log
     log_boot_msg = "Connected to the server. \nType messages and commands in killer.fifo terminal.\nYou must choose a username. Please make your choice with the following format: \n'pseudo=example'\nOtherwise, enter '!DISCONNECT' to leave the server.\n"
     os.write(fdr, log_boot_msg.encode(FORMAT))
@@ -204,29 +230,30 @@ def main():
     # thread for xterm crash tolerance
     open_ChatWindow()
     open_GameLobby()
+
     # thread for sending to server
+    
     FIFO_to_Server_Thread = threading.Thread(target=FIFO_to_Server, args=(fdw,fdr))
+    FIFO_to_Server_Thread.daemon = True
     FIFO_to_Server_Thread.start()
 
-    heartbeart_thread = threading.Thread(target=heartbeat_client)
-    heartbeart_thread.start()
+    #heartbeat_Thread = threading.Thread(target=heartbeat_client)
+    #heartbeat_Thread.start()
 
     # thread for writing server messages to log
     listening_Thread = threading.Thread(target=receive, args=(fdr,))
+    listening_Thread.daemon = True
     listening_Thread.start()
-
-    FIFO_to_Server_Thread.join()
-    listening_Thread.join()
-    heartbeart_Thread.join()
+    
+    # Keeps main thread active until the either captured SIGINT or user closes FIFO with !close
+    while not user_Closed:
+        time.sleep(1)
+    # Override signal that keeps xterms open
+    signal.signal(signal.SIGCLD, signal.SIG_DFL)
     # close the open files
     os.close(fdr)
     os.close(fdw)
-    # delete temporary files
-    print("Cleaning up files ...")
-    os.remove(f'/var/tmp/{unique_FIFO}')
-    os.remove(f'/var/tmp/{unique_LOG}')
-    time.sleep(2)
-    print("Tmp files deleted.")
-
+    client_Cleanup()
+    
 if __name__ == "__main__":
     main()
