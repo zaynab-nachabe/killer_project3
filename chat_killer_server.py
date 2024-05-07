@@ -15,7 +15,7 @@ import commands
 import hashlib
 import time
 import re
-
+import errno
 # Constants
 HEADER = 64
 PORT = 5050
@@ -69,6 +69,7 @@ def gestion_message(connection, client_address, server_socket):
     try:
         client_message = connection.recv(1024).decode()
         client_message = clean_message(client_message)
+        #print("Clients dict:", clients_dict)
         if client_message:
             client_key = (connection, client_address)
             if client_key in clients_dict and clients_dict[client_key][0] is None:
@@ -78,7 +79,7 @@ def gestion_message(connection, client_address, server_socket):
                         connection.sendall("Pseudo déjà pris!\n".encode(FORMAT))
                     else:
                         clients_dict[(connection, client_address)] = [pseudo, "connected", f"last-heartbeat: {time.time()}"]
-                        sockets_list.append(connection)
+                        sockets_list.append((connection, client_address))
                         connection.sendall("Pseudo reçu!\n".encode(FORMAT))
                         connection.sendall("$cookie=test_data\n".encode(FORMAT))
                 else:
@@ -101,10 +102,17 @@ def gestion_message(connection, client_address, server_socket):
                         connection.sendall(b"Le destinataire n'existe pas.\n")
                 elif client_message.startswith('!'):
                     if client_message == "!DISCONNECT":
+                        socket_to_remove = (connection, client_address)
                         connection.close()
                         clients_dict[(connection, client_address)][1] = "disconnected"
-                        if (connection, client_address) in sockets_list:
-                            sockets_list.remove((connection, client_address))
+                        print("Sockets list before:", sockets_list)
+                        if socket_to_remove in sockets_list:
+                            sockets_list.remove(socket_to_remove)
+                            print("socket removed")
+                            #print("Sockets list after:", sockets_list)
+                            #print("Current clients dict:", clients_dict)
+                        else:
+                            print("socket not caught")
                     elif client_message == "!list":
                         connection.sendall(f"Nombre de joueurs connectés: {len(clients_dict)}\n".encode())
                         for client_socket, val in clients_dict.items():
@@ -118,16 +126,22 @@ def gestion_message(connection, client_address, server_socket):
                     else:
                         connection.sendall(b"Commande inconnue.\n")
                 else:
+                    print('reconnect test here 2')
                     for client_socket, val in clients_dict.items():
                         if client_socket != server_socket and client_socket != connection:
-                            client_socket[0].sendall(f"{pseudo}: {client_message}\n".encode())
+                            if val[1] == "connected":  # Check if client is still connected
+                                client_socket[0].sendall(f"{pseudo}: {client_message}\n".encode())
         else:
             pass
     except Exception as error:
         print("Erreur lors de la réception des données :", error)
+        if error.errno == errno.EBADF:
+        # Handle "Bad file descriptor" error gracefully
+            print("File descriptor:", connection.fileno())
+            print("Socket closed. Ignoring further processing.")
         clients_dict[(connection, client_address)][1] = "fucked up"
-        if (connection, client_address) in sockets_list:
-            sockets_list.remove((connection, client_address))
+        #if (connection, client_address) in sockets_list:
+        #    sockets_list.remove((connection, client_address))
 
 def generate_cookie():
     """Generate a unique cookie for a player"""
@@ -196,7 +210,6 @@ def handle_client(connection, client_address):
     try:
         welcome_message = "Bienvenu sur le serveur!"
         connection.send(welcome_message.encode(FORMAT))
-
         while clients_dict[(connection, client_address)][1] == "connected":
             gestion_message(connection, client_address, server)
 
@@ -244,10 +257,10 @@ def start():
         thread.start()
         print(f"[ACTIVE CONNECTIONS] {len(clients_dict)}")
         # Handle inputs on the server side
-        """
-        thread.join()
-        thread2.join()
-        """
+        
+        #thread.join()
+        #thread2.join()
+        
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)

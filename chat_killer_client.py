@@ -50,9 +50,8 @@ def connect_server():
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client.connect(ADDR)
         connection_established.set()
-        return client
     except ConnectionRefusedError:
-        return None
+        return False
 
 def heartbeat_client():
     global client
@@ -92,72 +91,75 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
     global user_Closed
     global pseudo_Global
     global connection_established
-    global client
-    try:
-        pseudo_chosen = False
-        while True or not pseudo_chosen: # Continues to listen even if no data to send because of invalid inputs from user
-            select.select([fifo], [], []) # Wait for user input to FIFO
-            msg = os.read(fifo, 2048) # Read the FIFO
-            msg = msg.decode(FORMAT).strip('\n') # Convert bytes to str and strip newline
-            if not pseudo_chosen:
+    while True:
+        try:
+            pseudo_chosen = False
+            while True or not pseudo_chosen: # Continues to listen even if no data to send because of invalid inputs from user
+                select.select([fifo], [], []) # Wait for user input to FIFO
+                msg = os.read(fifo, 2048) # Read the FIFO
+                msg = msg.decode(FORMAT).strip('\n') # Convert bytes to str and strip newline
+                if not pseudo_chosen:
+                    if msg == DISCONNECT_MESSAGE:
+                        send(msg)
+                        break
+                    elif msg.startswith("pseudo=") and msg != "pseudo=":
+                        pseudo_Global = msg[7:]
+                        create_cookie_dir(pseudo_Global)
+                        pseudo_chosen = True
+                    else:
+                        log_nonPseudoOrDisconnectErrMsg ="Sorry, you must choose a username with 'pseudo=username' or disconnect with '!DISCONNECT'.\n"
+                        os.write(log, log_nonPseudoOrDisconnectErrMsg.encode(FORMAT))
+                        continue
                 if msg == DISCONNECT_MESSAGE:
                     send(msg)
                     break
-                elif msg.startswith("pseudo=") and msg != "pseudo=":
-                    pseudo_Global = msg[7:]
-                    create_cookie_dir(pseudo_Global)
-                    pseudo_chosen = True
+                elif msg.startswith('!'):
+                    # Handle command message
+                    send(msg)
                 else:
-                    log_nonPseudoOrDisconnectErrMsg ="Sorry, you must choose a username with 'pseudo=username' or disconnect with '!DISCONNECT'.\n"
-                    os.write(log, log_nonPseudoOrDisconnectErrMsg.encode(FORMAT))
-                    continue
-            if msg == DISCONNECT_MESSAGE:
-                send(msg)
-                break
-            elif msg.startswith('!'):
-                # Handle command message
-                send(msg)
-            else:
-                send(msg)
-    except KeyboardInterrupt:
-        send(DISCONNECT_MESSAGE)
-    finally:
-        print("Disconnecting from server...")
-        client.close()
-        connection_established.clear()
-        disconnectLogMessage = "You've disconnected from the server. If you would like to reconnect, enter '!reconnect'.\nOtherwise, enter '!close'.\n"
-        os.write(log, disconnectLogMessage.encode(FORMAT))
-        closed_flag = False
-        while not closed_flag:
-            select.select([fifo], [], []) # Wait for user input to FIFO
-            close_dc_msg = os.read(fifo, 2048)
-            close_dc_msg = close_dc_msg.decode(FORMAT).strip('\n')
-            if close_dc_msg == "!close":
-                print("Closing... Good Bye !")
-                closingLogMsg = "Closing... Good Bye !\n"
-                os.write(log, closingLogMsg.encode(FORMAT))
-                user_Closed = True
-                closed_flag = True
-            elif close_dc_msg == "!reconnect":
-                reconnectingLogMsg = "Attempting to Reestablish Connection...\n"
-                os.write(log, reconnectingLogMsg.encode(FORMAT))
-                client = connect_server()
-                if connect_server() is None:
-                    reconnectFailLogMsg = "Reconnection failed. Checking Server status ..."
-                    os.write(log, reconnectFailLogMsg.encode(FORMAT))
-                    continue
+                    send(msg)
+        except KeyboardInterrupt:
+            send(DISCONNECT_MESSAGE)
+        finally:
+            print("Disconnecting from server...")
+            client.close()
+            connection_established.clear()
+            disconnectLogMessage = "You've disconnected from the server. If you would like to reconnect, enter '!reconnect'.\nOtherwise, enter '!close'.\n"
+            os.write(log, disconnectLogMessage.encode(FORMAT))
+            closed_flag = False
+            while not closed_flag:
+                select.select([fifo], [], []) # Wait for user input to FIFO
+                close_dc_msg = os.read(fifo, 2048)
+                close_dc_msg = close_dc_msg.decode(FORMAT).strip('\n')
+                if close_dc_msg == "!close":
+                    print("Closing... Good Bye !")
+                    closingLogMsg = "Closing... Good Bye !\n"
+                    os.write(log, closingLogMsg.encode(FORMAT))
+                    user_Closed = True
+                    closed_flag = True
+                elif close_dc_msg == "!reconnect":
+                    reconnectingLogMsg = "Attempting to Reestablish Connection...\n"
+                    os.write(log, reconnectingLogMsg.encode(FORMAT))
+                    reconnected = connect_server()
+                    if reconnected == False:
+                        reconnectFailLogMsg = "Reconnection failed. Checking Server status ..."
+                        os.write(log, reconnectFailLogMsg.encode(FORMAT))
+                        continue
+                    else:
+                        break # exit this loop and return to the initial state with the new connection
                 else:
-                    FIFO_to_Server(fifo, log)
-            else:
-                unexpectedLogMsg = "\nSorry, please enter either '!close' or '!reconnect'.\n"
-                os.write(log, unexpectedLogMsg.encode(FORMAT))
-                continue
+                    unexpectedLogMsg = "\nSorry, please enter either '!close' or '!reconnect'.\n"
+                    os.write(log, unexpectedLogMsg.encode(FORMAT))
+                    continue
         
 def receive(fd):
     global cookie_dirAndFile_created
     global cookie_data
+    global client
     try:
         while True:
+            if client == None:
+                continue
             try:
                 select.select([client], [], []) # Wait for server
             except ValueError:
@@ -169,11 +171,11 @@ def receive(fd):
                         cookie_data = server_message[8:]
                         print(f"cookie data received: {cookie_data}")
                     print(server_message.strip())
+                    os.write(fd, server_message.encode(FORMAT))
             except OSError:
                 if OSError.errno == 9:
                     print("Socket closed...")
                     break
-            os.write(fd, server_message.encode(FORMAT))
     except Exception:
         print('Exception occured for receive function.')
 
@@ -237,7 +239,6 @@ def gracefulclean_signalhandler(signum, frame):
     client_Cleanup()
 
 def main():
-    global client
     global cookie_dirAndFile_created
     global cookie_data
     global pseudo_Global
@@ -247,10 +248,7 @@ def main():
     signal.signal(signal.SIGCHLD, sigchld_xterm_handler)
     signal.signal(signal.SIGINT, gracefulclean_signalhandler)
 
-    client = connect_server()
-    if client is None:
-        print("Failed to connect to server")
-        return
+    connect_server()
     # create files for game
     try:
         fdr = os.open(f"/var/tmp/{unique_LOG}", os.O_RDWR|os.O_APPEND|os.O_TRUNC|os.O_CREAT)
