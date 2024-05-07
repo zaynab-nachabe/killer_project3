@@ -80,6 +80,7 @@ def gestion_message(connection, client_address, server_socket):
                         clients_dict[(connection, client_address)] = [pseudo, "connected", f"last-heartbeat: {time.time()}"]
                         sockets_list.append(connection)
                         connection.sendall("Pseudo reçu!\n".encode(FORMAT))
+                        connection.sendall("$cookie=test_data\n".encode(FORMAT))
                 else:
                     pass
             else:
