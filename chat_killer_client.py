@@ -52,19 +52,16 @@ def connect_server():
         connection_established.set()
     except ConnectionRefusedError:
         return False
-
+'''
 def heartbeat_client():
-    global client
     global connection_established
     connection_established.wait()
-    while True:
-        if connection_established.is_set():
-            #send("$HEARTBEAT")
-            print("Sent Heartbeat")
-            time.sleep(5)
-        else:
-            print('Heartbeat not sending, waiting for connection to be established')
-            connection_established.wait()
+    while connection_established.is_set():
+        #send("$HEARTBEAT")
+        print("Sent Heartbeat")
+        time.sleep(5)
+    print('Heartbeat not sending, waiting for connection to be established')
+'''
     
 
 def send(msg):
@@ -91,6 +88,8 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
     global user_Closed
     global pseudo_Global
     global connection_established
+    global listening_Thread
+
     while True:
         try:
             pseudo_chosen = False
@@ -128,6 +127,7 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
             os.write(log, disconnectLogMessage.encode(FORMAT))
             closed_flag = False
             while not closed_flag:
+                print("waiting for input closed flag lvl")
                 select.select([fifo], [], []) # Wait for user input to FIFO
                 close_dc_msg = os.read(fifo, 2048)
                 close_dc_msg = close_dc_msg.decode(FORMAT).strip('\n')
@@ -146,38 +146,47 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
                         os.write(log, reconnectFailLogMsg.encode(FORMAT))
                         continue
                     else:
+                        listening_Thread = threading.Thread(target=receive, args=(log,client))
+                        listening_Thread.daemon = True
+                        listening_Thread.start()
                         break # exit this loop and return to the initial state with the new connection
                 else:
                     unexpectedLogMsg = "\nSorry, please enter either '!close' or '!reconnect'.\n"
                     os.write(log, unexpectedLogMsg.encode(FORMAT))
                     continue
         
-def receive(fd):
+def receive(fd, socket):
     global cookie_dirAndFile_created
     global cookie_data
-    global client
-    try:
-        while True:
-            if client == None:
-                continue
-            try:
-                select.select([client], [], []) # Wait for server
-            except ValueError:
+    global connection_established
+
+    while True:
+
+        connection_established.wait()
+        try:
+            select.select([socket], [], []) # Wait for server
+        except ValueError:
+            print("Value error")
+            break
+        try:
+            server_message = socket.recv(2048).decode(FORMAT)
+            if not server_message:
+                print("Connection closed, waiting to reconnect ...")
                 break
-            try:
-                server_message = client.recv(2048).decode(FORMAT)
-                if server_message:
-                    if server_message.startswith("$cookie="):
-                        cookie_data = server_message[8:]
-                        print(f"cookie data received: {cookie_data}")
-                    print(server_message.strip())
-                    os.write(fd, server_message.encode(FORMAT))
-            except OSError:
-                if OSError.errno == 9:
-                    print("Socket closed...")
-                    break
-    except Exception:
-        print('Exception occured for receive function.')
+            if server_message:
+                if server_message.startswith("$cookie="):
+                    cookie_data = server_message[8:]
+                    print(f"cookie data received: {cookie_data}")
+                print(server_message.strip())
+                os.write(fd, server_message.encode(FORMAT))
+        except Exception as e:
+            if e.errno == 9:
+                print("Bad file descriptor, breaking ...")
+                break
+            else:
+                print('Exception occured for receive function:', e)
+                break
+            
 
 # sigchld handler for both xterms, gets the pid associated with the caught SIGCHLD and reopens the correct xterm
 def sigchld_xterm_handler(signum, frame):
@@ -244,6 +253,7 @@ def main():
     global pseudo_Global
     global unique_FIFO
     global unique_LOG
+    global client
 
     signal.signal(signal.SIGCHLD, sigchld_xterm_handler)
     signal.signal(signal.SIGINT, gracefulclean_signalhandler)
@@ -274,13 +284,13 @@ def main():
     FIFO_to_Server_Thread = threading.Thread(target=FIFO_to_Server, args=(fdw,fdr))
     FIFO_to_Server_Thread.daemon = True
     FIFO_to_Server_Thread.start()
-
+    '''
     heartbeat_Thread = threading.Thread(target=heartbeat_client)
     heartbeat_Thread.daemon = True
     heartbeat_Thread.start()
-
+    '''
     # thread for writing server messages to log
-    listening_Thread = threading.Thread(target=receive, args=(fdr,))
+    listening_Thread = threading.Thread(target=receive, args=(fdr,client))
     listening_Thread.daemon = True
     listening_Thread.start()
     
@@ -294,7 +304,7 @@ def main():
                 print(f"Erreur creation cookie \"/var/tmp/{pseudo_Global}/cookie\": (%d)"%(err.errno),file=sys.stderr)
             cookie_dirAndFile_created = False # Make the flag revert to false so that the if condition isn't entered every while iteration once it's True
         # Once cookie data is received and stored in cookie_data variable, write it to the cookie fd and then change stored data in variable back to None to prevent constant loop
-        if cookie_data != None:
+        if cookie_data is not None:
             os.write(fd_c, cookie_data.encode(FORMAT))
             print("Data written to cookie :D")
             cookie_data = None
@@ -302,8 +312,7 @@ def main():
     # Override signal that keeps xterms open
     signal.signal(signal.SIGCLD, signal.SIG_DFL)
     # close the open files
-    heartbeat_Thread.join()
-    os.close(fdr)
+    os.close(fdr)   
     os.close(fdw)
     client_Cleanup()
     
