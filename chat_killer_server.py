@@ -168,7 +168,9 @@ def signal_handler(sig, frame):
     print("\n[SHUTDOWN] Server is shutting down...")
     broadcast(SHUTDOWN_MESSAGE)
     for client, info in clients_dict.items():
-        client[0].close()
+        if info[1] == "connected":
+            client[0].close()
+    # gracefully close the server socket
     server.close()
     sys.exit(0)
 
