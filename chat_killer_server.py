@@ -236,10 +236,6 @@ def handle_client(connection, client_address):
         clients_dict[(connection, client_address)][1] = "disconnected"
         print(f"[DISCONNECTION] {client_address} disconnected.")
 
-# function to handle whether there is a reason in the command
-def reason(command):
-    return len(command.split(' ')) > 2
-
 def handle_server_input():
     global clients_dict
     global game_started
@@ -270,7 +266,7 @@ def handle_server_input():
             print("Game started.")
         # !suspend <pseudo> <reason>
         elif command.startswith("!suspend"):
-            if reason(command):
+            if len(command.split(' ')) > 2:
                 command, pseudo, reason = command.split(' ', 2)
             else:
                 command, pseudo = command.split(' ', 1)
@@ -279,7 +275,7 @@ def handle_server_input():
                     if val[0] == pseudo:
                         # send a $suspend message to the client
                         client_socket[0].sendall(f"$SUSPEND\n".encode())
-                        if reason(command):
+                        if len(command.split(' ')) > 2:
                             client_socket[0].sendall(f"Vous avez été suspendu pour la raison suivante: {reason}\n".encode())
                         else:
                             client_socket[0].sendall(f"Vous avez été suspendu.\n".encode())
@@ -288,7 +284,7 @@ def handle_server_input():
                 print("Le joueur n'existe pas.")
         # !ban <pseudo> <reason>
         elif command.startswith("!ban"):
-            if reason(command):
+            if len(command.split(' ')) > 2:
                 command, pseudo, reason = command.split(' ', 2)
             else:
                 command, pseudo = command.split(' ', 1)
@@ -297,7 +293,7 @@ def handle_server_input():
                     if val[0] == pseudo:
                         # send a $ban message to the client
                         client_socket[0].sendall(f"$BAN\n".encode())
-                        if reason(command):
+                        if len(command.split(' ')) > 2:
                             client_socket[0].sendall(f"Vous avez été banni pour la raison suivante: {reason}\n".encode())
                         else:
                             client_socket[0].sendall(f"Vous avez été banni.\n".encode())
