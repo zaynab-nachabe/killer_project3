@@ -82,6 +82,8 @@ def gestion_message(connection, client_address, server_socket):
             # if suspended, send a message to the client and not share the message with other clients
             if clients_dict[client_key][3] == "suspended":
                 connection.sendall("Vous avez été suspendu. Vous ne pouvez pas envoyer de messages tant que vous n'êtes pas excusé. (forgive(n))\n".encode(FORMAT))
+            elif clients_dict[client_key][3] == "banned":
+                connection.sendall("Vous avez été banni. Vous ne pouvez pas envoyer de messages.\n".encode(FORMAT))
             elif client_key in clients_dict and clients_dict[client_key][0] is None and clients_dict[client_key][3] == "alive":
                 if client_message.startswith("pseudo="):
                     pseudo = client_message.split("=")[1].strip()
@@ -151,32 +153,6 @@ def gestion_message(connection, client_address, server_socket):
                     elif client_message == "!last-heartbeats":
                         for client_socket, val in clients_dict.items():
                             connection.sendall(f"Joueur: {val[0]} - Dernier battement de coeur: {val[2]}\n".encode())
-                    """
-                    # !suspend <pseudo> <time> <reason>
-                    elif client_message.startswith("!suspend"):
-                        command, pseudo, time, reason = client_message.split(' ', 3)
-                        if pseudo in [client[0] for client in clients_dict.values()]:
-                            for client_socket, val in clients_dict.items():
-                                if val[0] == pseudo:
-                                    client_socket[0].sendall(f"Vous avez été suspendu pour {time} secondes pour la raison suivante: {reason}\n".encode())
-                                    client_socket[0].close()
-                                    clients_dict[client_socket][3] = "suspended"
-                        else:
-                            connection.sendall(b"Le joueur n'existe pas.\n")                        
-                    else:
-                        connection.sendall(b"Commande inconnue.\n")
-                    # !ban <pseudo> <reason>
-                    if client_message.startswith("!ban"):
-                        command, pseudo, reason = client_message.split(' ', 2)
-                        if pseudo in [client[0] for client in clients_dict.values()]:
-                            for client_socket, val in clients_dict.items():
-                                if val[0] == pseudo:
-                                    client_socket[0].sendall(f"Vous avez été banni pour la raison suivante: {reason}\n".encode())
-                                    client_socket[0].close()
-                                    clients_dict[client_socket][3] = "banned"
-                        else:
-                            connection.sendall(b"Le joueur n'existe pas.\n")
-                    """
                 else:
                     print('reconnect test here 2')
                     for client_socket, val in clients_dict.items():
