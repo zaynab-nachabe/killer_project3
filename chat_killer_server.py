@@ -292,7 +292,6 @@ def handle_server_input():
                 for client_socket, val in clients_dict.items():
                     if val[0] == pseudo:
                         client_socket[0].sendall(f"Vous avez été suspendu pour {time} secondes pour la raison suivante: {reason}\n".encode())
-                        client_socket[0].close()
                         clients_dict[client_socket][3] = "suspended" 
             else:
                 print("Le joueur n'existe pas.")
