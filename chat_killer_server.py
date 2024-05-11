@@ -361,7 +361,7 @@ def main():
         thread.daemon = True
         thread.start()
         print()
-        print(f"[ACTIVE CONNECTIONS] {len(clients_dict)}")
+        print(f"[ACTIVE CONNECTIONS] {how_many_connected()}")
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
