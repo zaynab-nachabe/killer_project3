@@ -129,17 +129,20 @@ def gestion_message(connection, client_address, server_socket):
                     connection.sendall("$HEARTBEAT\n".encode(FORMAT))
                 if client_message.startswith('@'):
                     private_message = True
-                    dest_pseudo, message = client_message[1:].split(' ', 1)
-                    dest_socket = None
-                    for client_socket, val in clients_dict.items():
-                        conn, addr = client_socket
-                        if val[0] == dest_pseudo and conn != connection and val[1] == "connected":
-                            dest_socket = client_socket[0]
-                            break
-                    if dest_socket:
-                        dest_socket.sendall(f"{pseudo} (privé): {message}\n".encode(FORMAT))
+                    if len(client_message.split(' ')) < 2:
+                        connection.sendall("Veuillez spécifier le destinataire et le message.\n".encode(FORMAT))
                     else:
-                        connection.sendall("Le destinataire n'existe pas.\n".encode(FORMAT))
+                        dest_pseudo, message = client_message[1:].split(' ', 1)
+                        dest_socket = None
+                        for client_socket, val in clients_dict.items():
+                            conn, addr = client_socket
+                            if val[0] == dest_pseudo and conn != connection and val[1] == "connected":
+                                dest_socket = client_socket[0]
+                                break
+                        if dest_socket:
+                            dest_socket.sendall(f"{pseudo} (privé): {message}\n".encode(FORMAT))
+                        else:
+                            connection.sendall("Le destinataire n'existe pas.\n".encode(FORMAT))
                 elif client_message.startswith('!'):
                     if client_message == "!DISCONNECT":
                         socket_to_remove = (connection, client_address)
