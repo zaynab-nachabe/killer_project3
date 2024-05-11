@@ -44,6 +44,15 @@ sockets_list = [server]
 
 game_started = False
 
+cookie_dictionary = {}
+
+def bake_cookie_id():
+    dough_time = str(int(time.time() * 1000))
+    dough_remaining = 32 - len(dough_time)
+    chocolate_chips = ''.join(random.choices('0123456789', k=dough_remaining))
+    baked_cookie = dough_time + chocolate_chips
+    cookie_id = int(baked_cookie)
+    return cookie_id
 
 def how_many_connected():
     global clients_dict
@@ -62,6 +71,7 @@ def gestion_message(connection, client_address, server_socket):
     global clients_dict
     global cache_info_stack
     global sockets_list
+    global cookie_dictionary
     try:
         client_message = connection.recv(1024).decode()
         #print("Clients dict:", clients_dict)
@@ -70,13 +80,23 @@ def gestion_message(connection, client_address, server_socket):
             if client_key in clients_dict and clients_dict[client_key][0] is None:
                 if client_message.startswith("pseudo="):
                     pseudo = client_message.split("=")[1].strip()
-                    if pseudo in [client[0] for client in clients_dict.values()]:
-                        connection.sendall("Pseudo déjà pris!\n".encode(FORMAT))
+                    if pseudo in [client[0] for each_client, client in clients_dict.items()]:
+                        # if the user was disconnected and tries to reconnect with the same pseudo
+                        if clients_dict[client_key][1] == "disconnected":
+                            # delete the each_client from the dictionary
+                            del clients_dict[each_client]
+                            clients_dict[client_key][1] = "connected"
+                            clients_dict[client_key][2] = f"last-heartbeat: {time.time()}"
+                            connection.sendall("Reconnexion réussie!\n".encode(FORMAT))
+                        else:
+                            connection.sendall("Pseudo déjà pris!\n".encode(FORMAT))
                     else:
                         clients_dict[(connection, client_address)] = [pseudo, "connected", f"last-heartbeat: {time.time()}"]
                         sockets_list.append((connection, client_address))
                         connection.sendall("Pseudo reçu!\n".encode(FORMAT))
-                        connection.sendall("$cookie=test_data\n".encode(FORMAT))
+                        cookie = bake_cookie_id()
+                        cookie_dictionary[pseudo] = cookie
+                        connection.sendall(f"$cookie={cookie}\n".encode(FORMAT))
                 else:
                     pass
             else:
@@ -262,7 +282,7 @@ def handle_server_input():
                     if val[0] == pseudo:
                         client_socket[0].sendall(f"Vous avez été suspendu pour {time} secondes pour la raison suivante: {reason}\n".encode())
                         client_socket[0].close()
-                        clients_dict[client_socket][3] = "suspended"
+                        clients_dict[client_socket][3] = "suspended" 
             else:
                 print("Le joueur n'existe pas.")
         # !ban <pseudo> <reason>
@@ -304,6 +324,7 @@ def main():
         conn, addr = server.accept()
         thread = threading.Thread(target=handle_client, args=(conn, addr))
         thread.start()
+        print()
         print(f"[ACTIVE CONNECTIONS] {len(clients_dict)}")
         # Handle inputs on the server side
         
