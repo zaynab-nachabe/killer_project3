@@ -83,11 +83,19 @@ def gestion_message(connection, client_address, server_socket):
                     if pseudo in [client[0] for each_client, client in clients_dict.items()]:
                         # if the user was disconnected and tries to reconnect with the same pseudo
                         if clients_dict[client_key][1] == "disconnected":
-                            # delete the each_client from the dictionary
-                            del clients_dict[each_client]
-                            clients_dict[client_key][1] = "connected"
-                            clients_dict[client_key][2] = f"last-heartbeat: {time.time()}"
-                            connection.sendall("Reconnexion réussie!\n".encode(FORMAT))
+                            # cookie identification
+                            connection.sendall("$send_cookie\n".encode(FORMAT))
+                            clients_cookie = connection.recv(1024).decode()
+                            if clients_cookie != cookie_dictionary[each_client]:
+                                connection.sendall("$cookie_id_failed\n".encode(FORMAT))
+                                connection.sendall("Identification échouée\n".encode(FORMAT))
+                            else:
+                                # delete the each_client from the dictionary
+                                del clients_dict[each_client]
+                                clients_dict[client_key][0] = pseudo
+                                clients_dict[client_key][1] = "connected"
+                                clients_dict[client_key][2] = f"last-heartbeat: {time.time()}"
+                                connection.sendall("Reconnexion réussie!\n".encode(FORMAT))
                         else:
                             connection.sendall("Pseudo déjà pris!\n".encode(FORMAT))
                     else:
