@@ -77,6 +77,7 @@ def gestion_message(connection, client_address, server_socket):
     global cookie_dictionary
     global private_message
     try:
+        private_message = False
         client_message = connection.recv(1024).decode()
         #print("Clients dict:", clients_dict)
         if client_message:
