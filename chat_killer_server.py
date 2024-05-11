@@ -345,10 +345,6 @@ def main():
         thread.start()
         print()
         print(f"[ACTIVE CONNECTIONS] {len(clients_dict)}")
-        # Handle inputs on the server side
-        
-        #thread.join()
-        #thread2.join()
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
