@@ -270,6 +270,7 @@ def handle_server_input():
             if pseudo in [client[0] for client in clients_dict.values()]:
                 for client_socket, val in clients_dict.items():
                     if val[0] == pseudo:
+                        # send a $suspend message to the client
                         client_socket[0].sendall(f"Vous avez été suspendu pour la raison suivante: {reason}\n".encode())
                         clients_dict[client_socket][3] = "suspended" 
             else:
@@ -280,6 +281,8 @@ def handle_server_input():
             if pseudo in [client[0] for client in clients_dict.values()]:
                 for client_socket, val in clients_dict.items():
                     if val[0] == pseudo:
+                        # send a $ban message to the client
+                        client_socket[0].sendall(f"$ban".encode())
                         client_socket[0].sendall(f"Vous avez été banni pour la raison suivante: {reason}\n".encode())
                         client_socket[0].close()
                         clients_dict[client_socket][3] = "banned"
@@ -293,6 +296,8 @@ def handle_server_input():
                     if val[0] == pseudo:
                         clients_dict[client_socket][3] = "alive"
                         if val[1] == "connected":
+                            # send a $forgive message to the client
+                            client_socket[0].sendall(f"$forgive".encode())
                             client_socket[0].sendall("Vous avez été excusé. Vous pouvez envoyer des messages.\n".encode())
                         elif val[1] == "disconnected":
                             print("Le joueur est déconnecté mais n'est plus suspendu.")
