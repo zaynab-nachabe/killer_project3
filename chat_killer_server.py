@@ -126,7 +126,7 @@ def gestion_message(connection, client_address, server_socket):
                 pseudo = clients_dict[(connection, client_address)][0]  # Retrieve pseudo from dictionary
                 if client_message == "$HEARTBEAT":
                     clients_dict[connection][2] = f"last-heartbeat:{time.time()}"
-                    connection.sendall(b"$HEARTBEAT\n")
+                    connection.sendall("$HEARTBEAT\n".encode(FORMAT))
                 if client_message.startswith('@'):
                     private_message = True
                     dest_pseudo, message = client_message[1:].split(' ', 1)
@@ -137,9 +137,9 @@ def gestion_message(connection, client_address, server_socket):
                             dest_socket = client_socket[0]
                             break
                     if dest_socket:
-                        dest_socket.sendall(f"{pseudo} (privé): {message}\n".encode())
+                        dest_socket.sendall(f"{pseudo} (privé): {message}\n".encode(FORMAT))
                     else:
-                        connection.sendall(b"Le destinataire n'existe pas.\n")
+                        connection.sendall("Le destinataire n'existe pas.\n".encode(FORMAT))
                 elif client_message.startswith('!'):
                     if client_message == "!DISCONNECT":
                         socket_to_remove = (connection, client_address)
@@ -154,22 +154,22 @@ def gestion_message(connection, client_address, server_socket):
                         else:
                             print("socket not caught")
                     elif client_message == "!list":
-                        connection.sendall(f"Nombre de joueurs connectés: {len(clients_dict)}\n".encode())
+                        connection.sendall(f"Nombre de joueurs connectés: {len(clients_dict)}\n".encode(FORMAT))
                         for client_socket, val in clients_dict.items():
-                            connection.sendall(f"{val[0]} : {val[1]}\n".encode())
+                            connection.sendall(f"{val[0]} : {val[1]}\n".encode(FORMAT))
                     elif client_message == "!online_status":
                         for client_socket, val in clients_dict.items():
-                            connection.sendall(f"Statut en ligne du joueur {val[0]}: {val[1]}\n".encode())
+                            connection.sendall(f"Statut en ligne du joueur {val[0]}: {val[1]}\n".encode(FORMAT))
                     elif client_message == "!last-heartbeats":
                         for client_socket, val in clients_dict.items():
-                            connection.sendall(f"Joueur: {val[0]} - Dernier battement de coeur: {val[2]}\n".encode())
+                            connection.sendall(f"Joueur: {val[0]} - Dernier battement de coeur: {val[2]}\n".encode(FORMAT))
                 else:
                     if private_message is False:
                         for client_socket, val in clients_dict.items():
                             conn, addr = client_socket
                             if client_socket != server_socket and client_socket != connection:
                                 if val[1] == "connected":  # Check if client is still connected
-                                    conn.sendall(f"{pseudo}: {client_message}\n".encode())
+                                    conn.sendall(f"{pseudo}: {client_message}\n".encode(FORMAT))
         else:
             pass
     except Exception as error:
@@ -228,7 +228,7 @@ def handle_client(connection, client_address):
     global game_started
     print(f"[NEW CONNECTION] {client_address} connected.")
     if game_started:
-        connection.sendall("La partie a déjà commencé. Vous ne pouvez pas vous connecter.\n".encode())
+        connection.sendall("La partie a déjà commencé. Vous ne pouvez pas vous connecter.\n".encode(FORMAT))
         connection.close()
         return
     clients_dict[(connection, client_address)] = [None, "connected", f"last-heartbeat: {time.time()}", "alive"]
@@ -284,11 +284,11 @@ def handle_server_input():
                 for client_socket, val in clients_dict.items():
                     if val[0] == pseudo:
                         # send a $suspend message to the client
-                        client_socket[0].sendall(f"$SUSPEND\n".encode())
+                        client_socket[0].sendall(f"$SUSPEND\n".encode(FORMAT))
                         if len(command.split(' ')) > 2:
-                            client_socket[0].sendall(f"Vous avez été suspendu pour la raison suivante: {reason}\n".encode())
+                            client_socket[0].sendall(f"Vous avez été suspendu pour la raison suivante: {reason}\n".encode(FORMAT))
                         else:
-                            client_socket[0].sendall(f"Vous avez été suspendu.\n".encode())
+                            client_socket[0].sendall(f"Vous avez été suspendu.\n".encode(FORMAT))
                         clients_dict[client_socket][3] = "suspended" 
             else:
                 print("Le joueur n'existe pas.")
@@ -302,11 +302,11 @@ def handle_server_input():
                 for client_socket, val in clients_dict.items():
                     if val[0] == pseudo:
                         # send a $ban message to the client
-                        client_socket[0].sendall(f"$BAN\n".encode())
+                        client_socket[0].sendall(f"$BAN\n".encode(FORMAT))
                         if len(command.split(' ')) > 2:
-                            client_socket[0].sendall(f"Vous avez été banni pour la raison suivante: {reason}\n".encode())
+                            client_socket[0].sendall(f"Vous avez été banni pour la raison suivante: {reason}\n".encode(FORMAT))
                         else:
-                            client_socket[0].sendall(f"Vous avez été banni.\n".encode())
+                            client_socket[0].sendall(f"Vous avez été banni.\n".encode(FORMAT))
                         clients_dict[client_socket][3] = "banned"
             else:
                 print("Le joueur n'existe pas.")
@@ -319,8 +319,8 @@ def handle_server_input():
                         clients_dict[client_socket][3] = "alive"
                         if val[1] == "connected":
                             # send a $forgive message to the client
-                            client_socket[0].sendall(f"$FORGIVE\n".encode())
-                            client_socket[0].sendall("Vous avez été excusé. Vous pouvez envoyer des messages.\n".encode())
+                            client_socket[0].sendall(f"$FORGIVE\n".encode(FORMAT))
+                            client_socket[0].sendall("Vous avez été excusé. Vous pouvez envoyer des messages.\n".encode(FORMAT))
                         elif val[1] == "disconnected":
                             print("Le joueur est déconnecté mais n'est plus suspendu.")
             else:
