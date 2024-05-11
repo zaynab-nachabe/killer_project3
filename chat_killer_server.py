@@ -90,18 +90,25 @@ def gestion_message(connection, client_address, server_socket):
             elif client_key in clients_dict and clients_dict[client_key][0] is None and clients_dict[client_key][3] == "alive":
                 if client_message.startswith("pseudo="):
                     pseudo = client_message.split("=")[1].strip()
-                    if pseudo in [client[0] for each_client, client in clients_dict.items()]:
+                    if pseudo in [client[0] for key, var in clients_dict.items()]:
+                        # extract the client_key of the client with the same pseudo
+                        copycatconn, copycataddr = None, None
+                        copycatsocket = None
+                        for each_client, client in clients_dict.items():
+                            if client[0] == pseudo:
+                                copycatconn, copycataddr = each_client
+                                copycatsocket = (copycatconn, copycataddr)
                         # if the user was disconnected and tries to reconnect with the same pseudo
                         if clients_dict[client_key][1] == "disconnected" and clients_dict[client_key][0] == pseudo and clients_dict[client_key][3] == "alive":
                             # cookie identification
                             connection.sendall("$send_cookie\n".encode(FORMAT))
                             clients_cookie = connection.recv(1024).decode()
-                            if clients_cookie != cookie_dictionary[each_client]:
+                            if clients_cookie != cookie_dictionary[pseudo]:
                                 connection.sendall("$cookie_id_failed\n".encode(FORMAT))
                                 connection.sendall("Identification échouée\n".encode(FORMAT))
                             else:
                                 # delete the each_client from the dictionary
-                                del clients_dict[each_client]
+                                del clients_dict[copycatsocket]
                                 clients_dict[client_key][0] = pseudo
                                 clients_dict[client_key][1] = "connected"
                                 clients_dict[client_key][2] = f"last-heartbeat: {time.time()}"
