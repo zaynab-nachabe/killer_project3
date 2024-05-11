@@ -307,10 +307,8 @@ def handle_server_input():
                         clients_dict[client_socket][3] = "banned"
             else:
                 print("Le joueur n'existe pas.")
-        else:
-            print("Commande inconnue.")
         # !forgive <pseudo>
-        if command.startswith("!forgive"):
+        elif command.startswith("!forgive"):
             command, pseudo = command.split(' ', 1)
             if pseudo in [client[0] for client in clients_dict.values()]:
                 for client_socket, val in clients_dict.items():
