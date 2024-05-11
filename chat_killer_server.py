@@ -101,7 +101,7 @@ def gestion_message(connection, client_address, server_socket):
                         else:
                             connection.sendall("Pseudo déjà pris!\n".encode(FORMAT))
                     else:
-                        clients_dict[(connection, client_address)] = [pseudo, "connected", f"last-heartbeat: {time.time()}"]
+                        clients_dict[(connection, client_address)] = [pseudo, "connected", f"last-heartbeat: {time.time()}", "alive"]
                         sockets_list.append((connection, client_address))
                         connection.sendall("Pseudo reçu!\n".encode(FORMAT))
                         cookie = bake_cookie_id()
@@ -112,7 +112,7 @@ def gestion_message(connection, client_address, server_socket):
             else:
                 pseudo = clients_dict[(connection, client_address)][0]  # Retrieve pseudo from dictionary
                 if client_message == "$HEARTBEAT":
-                    clients_dict[connection] = [pseudo, "connected", f"last-heartbeat:{time.time()}"]
+                    clients_dict[connection][2] = f"last-heartbeat:{time.time()}"
                     connection.sendall(b"$HEARTBEAT\n")
                 if client_message.startswith('@'):
                     dest_pseudo, message = client_message[1:].split(' ', 1)
