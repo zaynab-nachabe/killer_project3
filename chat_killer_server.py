@@ -228,6 +228,8 @@ def handle_client(connection, client_address):
         print(f"[DISCONNECTION] {client_address} disconnected.")
 
 def handle_server_input():
+    global clients_dict
+    global game_started
     while True:
         command = input("Enter a command: ")
         if command == "!list":
@@ -249,6 +251,9 @@ def handle_server_input():
                 client[0].close()
             server.close()
             sys.exit(0)
+        elif command == "!start":
+            game_started = True
+            print("Game started.")
         # !suspend <pseudo> <time> <reason>
         elif command.startswith("!suspend"):
             command, pseudo, time, reason = command.split(' ', 3)
