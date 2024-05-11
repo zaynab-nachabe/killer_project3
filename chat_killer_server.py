@@ -315,6 +315,16 @@ def handle_server_input():
                             print("Le joueur est déconnecté mais n'est plus suspendu.")
             else:
                 print("Le joueur n'existe pas.")
+        elif command == "!help" or command == "!commands":
+            print("Liste des commandes disponibles:")
+            print("!list : liste les joueurs connectés")
+            print("!online_status : affiche le statut en ligne de chaque joueur")
+            print("!last-heartbeats : affiche les derniers battements de coeur de chaque joueur")
+            print("!shutdown : arrête le serveur")
+            print("!start : démarre la partie")
+            print("!suspend <pseudo> <raison> : suspend un joueur")
+            print("!ban <pseudo> <raison> : banni un joueur")
+            print("!forgive <pseudo> : excuser un joueur")
         else:
             print("Commande inconnue.")
 
