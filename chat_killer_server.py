@@ -92,8 +92,8 @@ def gestion_message(connection, client_address, server_socket):
                         # extract the client_key of the client with the same pseudo
                         copycatconn, copycataddr = None, None
                         copycatsocket = None
-                        for each_client, client in clients_dict.items():
-                            if client[0] == pseudo:
+                        for client_key, client_values in clients_dict.items():
+                            if client_values[0] == pseudo:
                                 copycatconn, copycataddr = each_client
                                 copycatsocket = (copycatconn, copycataddr)
                         # if the user was disconnected and tries to reconnect with the same pseudo
