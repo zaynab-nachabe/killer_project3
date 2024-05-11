@@ -42,6 +42,8 @@ print("Serveur démarré sur le port", PORT)
 # Liste des sockets à surveiller pour les entrées
 sockets_list = [server]
 
+game_started = False
+
 
 def how_many_connected():
     global clients_dict
@@ -204,7 +206,12 @@ def handle_issue():
 def handle_client(connection, client_address):
     global sockets_list
     global clients_dict
+    global game_started
     print(f"[NEW CONNECTION] {client_address} connected.")
+    if game_started:
+        connection.sendall("La partie a déjà commencé. Vous ne pouvez pas vous connecter.\n".encode())
+        connection.close()
+        return
     clients_dict[(connection, client_address)] = [None, "connected", f"last-heartbeat: {time.time()}", "alive"]
     # sockets_list = creation_socket(server)
     try:
@@ -280,7 +287,7 @@ def handle_server_input():
         else:
             print("Commande inconnue.")
 
-def start():
+def main():
     global clients_dict
     server.listen()
     print(f"[LISTENING] server is listening on {SERVER}")
@@ -302,5 +309,5 @@ def start():
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     print("[STARTING] server is starting...")
-    start()
+    main()
 
