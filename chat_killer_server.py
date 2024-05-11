@@ -317,7 +317,6 @@ def handle_server_input():
             if pseudo in [client[0] for client in clients_dict.values()]:
                 for client_socket, val in clients_dict.items():
                     if val[0] == pseudo:
-                        # send a signal SIGCONT to the client to resume the connection
                         clients_dict[client_socket][3] = "alive"
                         if val[1] == "connected":
                             client_socket[0].sendall("Vous avez été excusé. Vous pouvez envoyer des messages.\n".encode())
