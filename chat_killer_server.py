@@ -84,6 +84,7 @@ def gestion_message(connection, client_address, server_socket):
                 connection.sendall("Vous avez été suspendu. Vous ne pouvez pas envoyer de messages tant que vous n'êtes pas excusé. (forgive(n))\n".encode(FORMAT))
             elif clients_dict[client_key][3] == "banned":
                 connection.sendall("Vous avez été banni. Vous ne pouvez pas envoyer de messages.\n".encode(FORMAT))
+                connection.close()
             elif client_key in clients_dict and clients_dict[client_key][0] is None and clients_dict[client_key][3] == "alive":
                 if client_message.startswith("pseudo="):
                     pseudo = client_message.split("=")[1].strip()
@@ -236,7 +237,9 @@ def handle_client(connection, client_address):
         clients_dict[(connection, client_address)][1] = "disconnected"
         print(f"[DISCONNECTION] {client_address} disconnected.")
 
-# function to handle whether there is a 
+# function to handle whether there is a reason in the command
+def reason(command):
+    return len(command.split(' ')) > 2
 
 def handle_server_input():
     global clients_dict
@@ -268,24 +271,30 @@ def handle_server_input():
             print("Game started.")
         # !suspend <pseudo> <reason>
         elif command.startswith("!suspend"):
-            command, pseudo, reason = command.split(' ', 2)
+            if reason(command):
+                command, pseudo, reason = command.split(' ', 2)
+            else:
+                command, pseudo = command.split(' ', 1)
             if pseudo in [client[0] for client in clients_dict.values()]:
                 for client_socket, val in clients_dict.items():
                     if val[0] == pseudo:
                         # send a $suspend message to the client
-                        client_socket[0].sendall(f"$SUSPEND".encode())
+                        client_socket[0].sendall(f"$SUSPEND\n".encode())
                         client_socket[0].sendall(f"Vous avez été suspendu pour la raison suivante: {reason}\n".encode())
                         clients_dict[client_socket][3] = "suspended" 
             else:
                 print("Le joueur n'existe pas.")
         # !ban <pseudo> <reason>
         elif command.startswith("!ban"):
-            command, pseudo, reason = command.split(' ', 2)
+            if reason(command):
+                command, pseudo, reason = command.split(' ', 2)
+            else:
+                command, pseudo = command.split(' ', 1)
             if pseudo in [client[0] for client in clients_dict.values()]:
                 for client_socket, val in clients_dict.items():
                     if val[0] == pseudo:
                         # send a $ban message to the client
-                        client_socket[0].sendall(f"$BAN".encode())
+                        client_socket[0].sendall(f"$BAN\n".encode())
                         client_socket[0].sendall(f"Vous avez été banni pour la raison suivante: {reason}\n".encode())
                         client_socket[0].close()
                         clients_dict[client_socket][3] = "banned"
@@ -300,7 +309,7 @@ def handle_server_input():
                         clients_dict[client_socket][3] = "alive"
                         if val[1] == "connected":
                             # send a $forgive message to the client
-                            client_socket[0].sendall(f"$FORGIVE".encode())
+                            client_socket[0].sendall(f"$FORGIVE\n".encode())
                             client_socket[0].sendall("Vous avez été excusé. Vous pouvez envoyer des messages.\n".encode())
                         elif val[1] == "disconnected":
                             print("Le joueur est déconnecté mais n'est plus suspendu.")
