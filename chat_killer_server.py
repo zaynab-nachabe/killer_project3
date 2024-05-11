@@ -84,13 +84,12 @@ def gestion_message(connection, client_address, server_socket):
                 connection.sendall("Vous avez été suspendu. Vous ne pouvez pas envoyer de messages tant que vous n'êtes pas excusé. (forgive(n))\n".encode(FORMAT))
             elif clients_dict[client_key][3] == "banned":
                 connection.sendall("Vous avez été banni. Vous ne pouvez pas envoyer de messages.\n".encode(FORMAT))
-                connection.close()
             elif client_key in clients_dict and clients_dict[client_key][0] is None and clients_dict[client_key][3] == "alive":
                 if client_message.startswith("pseudo="):
                     pseudo = client_message.split("=")[1].strip()
                     if pseudo in [client[0] for each_client, client in clients_dict.items()]:
                         # if the user was disconnected and tries to reconnect with the same pseudo
-                        if clients_dict[client_key][1] == "disconnected":
+                        if clients_dict[client_key][1] == "disconnected" and clients_dict[client_key][0] == pseudo and clients_dict[client_key][3] == "alive":
                             # cookie identification
                             connection.sendall("$send_cookie\n".encode(FORMAT))
                             clients_cookie = connection.recv(1024).decode()
@@ -302,7 +301,6 @@ def handle_server_input():
                             client_socket[0].sendall(f"Vous avez été banni pour la raison suivante: {reason}\n".encode())
                         else:
                             client_socket[0].sendall(f"Vous avez été banni.\n".encode())
-                        client_socket[0].close()
                         clients_dict[client_socket][3] = "banned"
             else:
                 print("Le joueur n'existe pas.")
