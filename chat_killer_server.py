@@ -126,7 +126,8 @@ def gestion_message(connection, client_address, server_socket):
                     dest_pseudo, message = client_message[1:].split(' ', 1)
                     dest_socket = None
                     for client_socket, val in clients_dict.items():
-                        if val[0] == dest_pseudo and client_socket != connection:
+                        conn, addr = client_socket
+                        if val[0] == dest_pseudo and conn != connection:
                             dest_socket = client_socket[0]
                             break
                     if dest_socket:
