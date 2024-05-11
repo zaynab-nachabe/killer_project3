@@ -123,8 +123,32 @@ def gestion_message(connection, client_address, server_socket):
                     elif client_message == "!last-heartbeats":
                         for client_socket, val in clients_dict.items():
                             connection.sendall(f"Joueur: {val[0]} - Dernier battement de coeur: {val[2]}\n".encode())
+                    """
+                    # !suspend <pseudo> <time> <reason>
+                    elif client_message.startswith("!suspend"):
+                        command, pseudo, time, reason = client_message.split(' ', 3)
+                        if pseudo in [client[0] for client in clients_dict.values()]:
+                            for client_socket, val in clients_dict.items():
+                                if val[0] == pseudo:
+                                    client_socket[0].sendall(f"Vous avez été suspendu pour {time} secondes pour la raison suivante: {reason}\n".encode())
+                                    client_socket[0].close()
+                                    clients_dict[client_socket][3] = "suspended"
+                        else:
+                            connection.sendall(b"Le joueur n'existe pas.\n")                        
                     else:
                         connection.sendall(b"Commande inconnue.\n")
+                    # !ban <pseudo> <reason>
+                    if client_message.startswith("!ban"):
+                        command, pseudo, reason = client_message.split(' ', 2)
+                        if pseudo in [client[0] for client in clients_dict.values()]:
+                            for client_socket, val in clients_dict.items():
+                                if val[0] == pseudo:
+                                    client_socket[0].sendall(f"Vous avez été banni pour la raison suivante: {reason}\n".encode())
+                                    client_socket[0].close()
+                                    clients_dict[client_socket][3] = "banned"
+                        else:
+                            connection.sendall(b"Le joueur n'existe pas.\n")
+                    """
                 else:
                     print('reconnect test here 2')
                     for client_socket, val in clients_dict.items():
@@ -144,32 +168,12 @@ def gestion_message(connection, client_address, server_socket):
         #if (connection, client_address) in sockets_list:
         #    sockets_list.remove((connection, client_address))
 
-def generate_cookie():
-    """Generate a unique cookie for a player"""
-    return hashlib.sha256(os.urandom(32)).hexdigest()
-
-def cache_file(file_path):
-    """Cache a file in the cache directory"""
-    file_hash = hashlib.sha256(open(file_path, 'rb').read()).hexdigest()
-    cached_file_path = os.path.join(CACHE_DIR, file_hash)
-
-    try:
-        os.makedirs(CACHE_DIR, exist_ok=True)
-        if not os.path.exists(cached_file_path):
-            with open(cached_file_path, 'wb') as cache_file:
-                with open(file_path, 'rb') as original_file:
-                    cache_file.write(original_file.read())
-    except Exception as e:
-        print(f"Error caching file {file_path}: {e}")
-
-    return cached_file_path
-
 def signal_handler(sig, frame):
     """Handle graceful shutdown on SIGINT."""
     print("\n[SHUTDOWN] Server is shutting down...")
-    broadcast(SHUTDOWN_MESSAGE)
     for client, info in clients_dict.items():
         if info[1] == "connected":
+            client[0].send(SHUTDOWN_MESSAGE.encode(FORMAT))
             client[0].close()
     # gracefully close the server socket
     server.close()
@@ -208,7 +212,7 @@ def handle_client(connection, client_address):
     global sockets_list
     global clients_dict
     print(f"[NEW CONNECTION] {client_address} connected.")
-    clients_dict[(connection, client_address)] = [None, "connected", f"last-heartbeat: {time.time()}"]
+    clients_dict[(connection, client_address)] = [None, "connected", f"last-heartbeat: {time.time()}", "alive"]
     # sockets_list = creation_socket(server)
     try:
         welcome_message = "Bienvenu sur le serveur!"
@@ -245,6 +249,43 @@ def handle_server_input():
                 client[0].close()
             server.close()
             sys.exit(0)
+        # !suspend <pseudo> <time> <reason>
+        elif command.startswith("!suspend"):
+            command, pseudo, time, reason = command.split(' ', 3)
+            if pseudo in [client[0] for client in clients_dict.values()]:
+                for client_socket, val in clients_dict.items():
+                    if val[0] == pseudo:
+                        client_socket[0].sendall(f"Vous avez été suspendu pour {time} secondes pour la raison suivante: {reason}\n".encode())
+                        client_socket[0].close()
+                        clients_dict[client_socket][3] = "suspended"
+            else:
+                print("Le joueur n'existe pas.")
+        # !ban <pseudo> <reason>
+        elif command.startswith("!ban"):
+            command, pseudo, reason = command.split(' ', 2)
+            if pseudo in [client[0] for client in clients_dict.values()]:
+                for client_socket, val in clients_dict.items():
+                    if val[0] == pseudo:
+                        client_socket[0].sendall(f"Vous avez été banni pour la raison suivante: {reason}\n".encode())
+                        client_socket[0].close()
+                        clients_dict[client_socket][3] = "banned"
+            else:
+                print("Le joueur n'existe pas.")
+        else:
+            print("Commande inconnue.")
+        # !forgive <pseudo>
+        if command.startswith("!forgive"):
+            command, pseudo = command.split(' ', 1)
+            if pseudo in [client[0] for client in clients_dict.values()]:
+                for client_socket, val in clients_dict.items():
+                    if val[0] == pseudo:
+                        client_socket[0].sendall(f"Vous avez été pardonné.\n".encode())
+                        # send a signal SIGCONT to the client to resume the connection
+                        clients_dict[client_socket][3] = "alive"
+            else:
+                print("Le joueur n'existe pas.")
+        else:
+            print("Commande inconnue.")
 
 def start():
     global clients_dict
