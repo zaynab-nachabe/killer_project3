@@ -280,7 +280,10 @@ def handle_server_input():
                     if val[0] == pseudo:
                         # send a $suspend message to the client
                         client_socket[0].sendall(f"$SUSPEND\n".encode())
-                        client_socket[0].sendall(f"Vous avez été suspendu pour la raison suivante: {reason}\n".encode())
+                        if reason(command):
+                            client_socket[0].sendall(f"Vous avez été suspendu pour la raison suivante: {reason}\n".encode())
+                        else:
+                            client_socket[0].sendall(f"Vous avez été suspendu.\n".encode())
                         clients_dict[client_socket][3] = "suspended" 
             else:
                 print("Le joueur n'existe pas.")
@@ -295,7 +298,10 @@ def handle_server_input():
                     if val[0] == pseudo:
                         # send a $ban message to the client
                         client_socket[0].sendall(f"$BAN\n".encode())
-                        client_socket[0].sendall(f"Vous avez été banni pour la raison suivante: {reason}\n".encode())
+                        if reason(command):
+                            client_socket[0].sendall(f"Vous avez été banni pour la raison suivante: {reason}\n".encode())
+                        else:
+                            client_socket[0].sendall(f"Vous avez été banni.\n".encode())
                         client_socket[0].close()
                         clients_dict[client_socket][3] = "banned"
             else:
