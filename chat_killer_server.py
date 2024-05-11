@@ -321,7 +321,7 @@ def handle_server_input():
             print("!online_status : affiche le statut en ligne de chaque joueur")
             print("!last-heartbeats : affiche les derniers battements de coeur de chaque joueur")
             print("!shutdown : arrête le serveur")
-            print("!start : démarre la partie")
+            print("!start : démarre la partie et empêche les nouveaux joueurs de se connecter")
             print("!suspend <pseudo> <raison> : suspend un joueur")
             print("!ban <pseudo> <raison> : banni un joueur")
             print("!forgive <pseudo> : excuser un joueur")
