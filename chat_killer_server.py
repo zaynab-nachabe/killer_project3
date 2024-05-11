@@ -246,7 +246,6 @@ def handle_client(connection, client_address):
         connection.close()
         return
     clients_dict[(connection, client_address)] = [None, "connected", f"last-heartbeat: {time.time()}", "alive"]
-    print(clients_dict[(connection, client_address)])
     # sockets_list = creation_socket(server)
     try:
         welcome_message = "Bienvenu sur le serveur!"
@@ -296,7 +295,6 @@ def handle_server_input():
                 for client_socket, val in clients_dict.items():
                     if val[0] == pseudo:
                         client_socket[0].sendall(f"Vous avez été suspendu pour la raison suivante: {reason}\n".encode())
-                        print(clients_dict[client_socket])
                         clients_dict[client_socket][3] = "suspended" 
             else:
                 print("Le joueur n'existe pas.")
