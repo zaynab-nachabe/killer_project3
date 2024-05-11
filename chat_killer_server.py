@@ -81,7 +81,7 @@ def gestion_message(connection, client_address, server_socket):
             client_key = (connection, client_address)
             # if suspended, send a message to the client and not share the message with other clients
             if clients_dict[client_key][3] == "suspended":
-                connection.sendall("Vous avez été suspendu. Vous ne pouvez pas envoyer de messages tant que vous n'êtes pas excusé.\n".encode(FORMAT))
+                connection.sendall("Vous avez été suspendu. Vous ne pouvez pas envoyer de messages tant que vous n'êtes pas excusé. (forgive(n))\n".encode(FORMAT))
             elif client_key in clients_dict and clients_dict[client_key][0] is None and clients_dict[client_key][3] == "alive":
                 if client_message.startswith("pseudo="):
                     pseudo = client_message.split("=")[1].strip()
