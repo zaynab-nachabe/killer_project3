@@ -111,7 +111,7 @@ def gestion_message(connection, client_address, server_socket):
                 pseudo = clients_dict[(connection, client_address)][0]  # Retrieve pseudo from dictionary
                 if client_message == "$HEARTBEAT":
                     clients_dict[connection] = [pseudo, "connected", f"last-heartbeat:{time.time()}"]
-                    connection.sendall(b"heartbeat received\n")
+                    connection.sendall(b"$HEARTBEAT\n")
                 if client_message.startswith('@'):
                     dest_pseudo, message = client_message[1:].split(' ', 1)
                     dest_socket = None
@@ -320,12 +320,23 @@ def handle_server_input():
         else:
             print("Commande inconnue.")
 
+# function to send to connected clients heartbeats
+def send_heartbeats():
+    global clients_dict
+    while True:
+        time.sleep(5)
+        for client, info in clients_dict.items():
+            if info[0] is not None and info[1] == "connected":
+                client[0].sendall(b"$HEARTBEAT\n")
+
 def main():
     global clients_dict
     server.listen()
     print(f"[LISTENING] server is listening on {SERVER}")
     # thread2 = threading.Thread(target=check_heartbeat)
     # thread2.start()
+    # thread4 = threading.Thread(target=send_heartbeats)
+    # thread4.start()
     thread3 = threading.Thread(target=handle_server_input)
     thread3.start()
     while True:
