@@ -291,7 +291,7 @@ def handle_server_input():
             print("Game started.")
         # !suspend <pseudo> <reason>
         elif command.startswith("!suspend"):
-            command, pseudo, reason = command.split(' ', 3)
+            command, pseudo, reason = command.split(' ', 2)
             if pseudo in [client[0] for client in clients_dict.values()]:
                 for client_socket, val in clients_dict.items():
                     if val[0] == pseudo:
