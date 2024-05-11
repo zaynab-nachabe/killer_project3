@@ -79,7 +79,10 @@ def gestion_message(connection, client_address, server_socket):
         #print("Clients dict:", clients_dict)
         if client_message:
             client_key = (connection, client_address)
-            if client_key in clients_dict and clients_dict[client_key][0] is None:
+            # if suspended, send a message to the client and not share the message with other clients
+            if clients_dict[client_key][3] == "suspended":
+                connection.sendall("Vous avez été suspendu. Vous ne pouvez pas envoyer de messages tant que vous n'êtes pas excusé.\n".encode(FORMAT))
+            elif client_key in clients_dict and clients_dict[client_key][0] is None and clients_dict[client_key][3] == "alive":
                 if client_message.startswith("pseudo="):
                     pseudo = client_message.split("=")[1].strip()
                     if pseudo in [client[0] for each_client, client in clients_dict.items()]:
@@ -286,13 +289,13 @@ def handle_server_input():
         elif command == "!start":
             game_started = True
             print("Game started.")
-        # !suspend <pseudo> <time> <reason>
+        # !suspend <pseudo> <reason>
         elif command.startswith("!suspend"):
-            command, pseudo, time, reason = command.split(' ', 3)
+            command, pseudo, reason = command.split(' ', 3)
             if pseudo in [client[0] for client in clients_dict.values()]:
                 for client_socket, val in clients_dict.items():
                     if val[0] == pseudo:
-                        client_socket[0].sendall(f"Vous avez été suspendu pour {time} secondes pour la raison suivante: {reason}\n".encode())
+                        client_socket[0].sendall(f"Vous avez été suspendu pour la raison suivante: {reason}\n".encode())
                         print(clients_dict[client_socket])
                         clients_dict[client_socket][3] = "suspended" 
             else:
@@ -314,9 +317,12 @@ def handle_server_input():
             if pseudo in [client[0] for client in clients_dict.values()]:
                 for client_socket, val in clients_dict.items():
                     if val[0] == pseudo:
-                        client_socket[0].sendall(f"Vous avez été pardonné.\n".encode())
                         # send a signal SIGCONT to the client to resume the connection
                         clients_dict[client_socket][3] = "alive"
+                        if val[1] == "connected":
+                            client_socket[0].sendall("Vous avez été excusé. Vous pouvez envoyer des messages.\n".encode())
+                        elif val[1] == "disconnected":
+                            print("Le joueur est déconnecté mais n'est plus suspendu.")
             else:
                 print("Le joueur n'existe pas.")
         else:
