@@ -1,3 +1,0 @@
-Ce répertoire est déstiné à contenir les fichiers de test du projet.
-On travaille sur une version refactorisée du code de base, et on veut s'assurer que les modifications apportées ne cassent pas les fonctionnalités existantes.
-Les tests sont 
