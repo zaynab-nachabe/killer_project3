@@ -236,6 +236,8 @@ def handle_client(connection, client_address):
         clients_dict[(connection, client_address)][1] = "disconnected"
         print(f"[DISCONNECTION] {client_address} disconnected.")
 
+# function to handle whether there is a 
+
 def handle_server_input():
     global clients_dict
     global game_started
@@ -271,6 +273,7 @@ def handle_server_input():
                 for client_socket, val in clients_dict.items():
                     if val[0] == pseudo:
                         # send a $suspend message to the client
+                        client_socket[0].sendall(f"$SUSPEND".encode())
                         client_socket[0].sendall(f"Vous avez été suspendu pour la raison suivante: {reason}\n".encode())
                         clients_dict[client_socket][3] = "suspended" 
             else:
@@ -282,7 +285,7 @@ def handle_server_input():
                 for client_socket, val in clients_dict.items():
                     if val[0] == pseudo:
                         # send a $ban message to the client
-                        client_socket[0].sendall(f"$ban".encode())
+                        client_socket[0].sendall(f"$BAN".encode())
                         client_socket[0].sendall(f"Vous avez été banni pour la raison suivante: {reason}\n".encode())
                         client_socket[0].close()
                         clients_dict[client_socket][3] = "banned"
@@ -297,7 +300,7 @@ def handle_server_input():
                         clients_dict[client_socket][3] = "alive"
                         if val[1] == "connected":
                             # send a $forgive message to the client
-                            client_socket[0].sendall(f"$forgive".encode())
+                            client_socket[0].sendall(f"$FORGIVE".encode())
                             client_socket[0].sendall("Vous avez été excusé. Vous pouvez envoyer des messages.\n".encode())
                         elif val[1] == "disconnected":
                             print("Le joueur est déconnecté mais n'est plus suspendu.")
