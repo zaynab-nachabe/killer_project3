@@ -88,7 +88,7 @@ def gestion_message(connection, client_address, server_socket):
             elif client_key in clients_dict and clients_dict[client_key][0] is None and clients_dict[client_key][3] == "alive":
                 if client_message.startswith("pseudo="):
                     pseudo = client_message.split("=")[1].strip()
-                    if pseudo in [client[0] for key, var in clients_dict.items()]:
+                    if pseudo in [var[0] for key, var in clients_dict.items()]:
                         # extract the client_key of the client with the same pseudo
                         copycatconn, copycataddr = None, None
                         copycatsocket = None
