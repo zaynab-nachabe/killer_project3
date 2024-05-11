@@ -14,7 +14,6 @@ import sys, select
 import commands
 import hashlib
 import time
-import re
 import errno
 # Constants
 HEADER = 64
@@ -43,11 +42,6 @@ print("Serveur démarré sur le port", PORT)
 # Liste des sockets à surveiller pour les entrées
 sockets_list = [server]
 
-def clean_message(message):
-    # Strip leading and trailing spaces and replace multiple spaces with a single space
-    cleaned_message = re.sub(r'\s+', ' ', message).strip()
-    final_message = re.sub(r'^\d+\s*', '', cleaned_message)
-    return final_message
 
 def how_many_connected():
     global clients_dict
@@ -68,7 +62,6 @@ def gestion_message(connection, client_address, server_socket):
     global sockets_list
     try:
         client_message = connection.recv(1024).decode()
-        client_message = clean_message(client_message)
         #print("Clients dict:", clients_dict)
         if client_message:
             client_key = (connection, client_address)
