@@ -44,6 +44,7 @@ print("Serveur démarré sur le port", PORT)
 # Liste des sockets à surveiller pour les entrées
 sockets_list = [server]
 
+private_message = False
 game_started = False
 
 cookie_dictionary = {}
@@ -74,6 +75,7 @@ def gestion_message(connection, client_address, server_socket):
     global cache_info_stack
     global sockets_list
     global cookie_dictionary
+    global private_message
     try:
         client_message = connection.recv(1024).decode()
         #print("Clients dict:", clients_dict)
@@ -120,6 +122,7 @@ def gestion_message(connection, client_address, server_socket):
                     clients_dict[connection][2] = f"last-heartbeat:{time.time()}"
                     connection.sendall(b"$HEARTBEAT\n")
                 if client_message.startswith('@'):
+                    private_message = True
                     dest_pseudo, message = client_message[1:].split(' ', 1)
                     dest_socket = None
                     for client_socket, val in clients_dict.items():
@@ -154,12 +157,12 @@ def gestion_message(connection, client_address, server_socket):
                         for client_socket, val in clients_dict.items():
                             connection.sendall(f"Joueur: {val[0]} - Dernier battement de coeur: {val[2]}\n".encode())
                 else:
-                    print('reconnect test here 2')
-                    for client_socket, val in clients_dict.items():
-                        conn, addr = client_socket
-                        if client_socket != server_socket and client_socket != connection:
-                            if val[1] == "connected":  # Check if client is still connected
-                                conn.sendall(f"{pseudo}: {client_message}\n".encode())
+                    if private_message is False:
+                        for client_socket, val in clients_dict.items():
+                            conn, addr = client_socket
+                            if client_socket != server_socket and client_socket != connection:
+                                if val[1] == "connected":  # Check if client is still connected
+                                    conn.sendall(f"{pseudo}: {client_message}\n".encode())
         else:
             pass
     except Exception as error:
