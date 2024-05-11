@@ -10,9 +10,7 @@
 import socket, os
 import threading
 import signal
-import sys, select
-import commands
-import hashlib
+import sys
 import time
 import errno
 import random
