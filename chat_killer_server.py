@@ -73,9 +73,6 @@ def parse_private_message(client_message):
         pseudo.append(message_split[0][1:])
         message_split = message_split[1:]
     message = ' '.join(message_split)
-    # parse through pseudo and remove the @ in front of each pseudo
-    for i in range(len(pseudo)):
-        pseudo[i] = pseudo[i][1:]
     return pseudo, message
 
 def gestion_message(connection, client_address, server_socket):
