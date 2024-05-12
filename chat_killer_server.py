@@ -371,12 +371,12 @@ def main():
     global clients_dict
     server.listen()
     print(f"[LISTENING] server is listening on {SERVER}")
-    # thread2 = threading.Thread(target=check_heartbeat)
-    # thread2.daemon = True
-    # thread2.start()
-    # thread4 = threading.Thread(target=send_heartbeats)
-    # thread4.daemon = True
-    # thread4.start()
+    thread2 = threading.Thread(target=check_heartbeat)
+    thread2.daemon = True
+    thread2.start()
+    thread4 = threading.Thread(target=send_heartbeats)
+    thread4.daemon = True
+    thread4.start()
     thread3 = threading.Thread(target=handle_server_input)
     thread3.daemon = True
     thread3.start()
