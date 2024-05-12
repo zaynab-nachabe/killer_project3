@@ -93,7 +93,7 @@ def gestion_message(connection, client_address, server_socket):
                                 copycatconn, copycataddr = client_key
                                 copycatsocket = (copycatconn, copycataddr)
                         # if the user was disconnected and tries to reconnect with the same pseudo
-                        if clients_dict[client_key][1] == "disconnected" and clients_dict[client_key][0] == pseudo:
+                        if clients_dict[client_key][0] == pseudo:
                             # cookie identification
                             connection.sendall("$send_cookie\n".encode(FORMAT))
                             clients_cookie = connection.recv(1024).decode()
