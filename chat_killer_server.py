@@ -93,7 +93,7 @@ def gestion_message(connection, client_address, server_socket):
                                 copycatconn, copycataddr = client_key
                                 copycatsocket = (copycatconn, copycataddr)
                         # if the user was disconnected and tries to reconnect with the same pseudo
-                        if clients_dict[copycatsocket][1] == "disconnected":
+                        if clients_dict[client_key][1] == "disconnected" and clients_dict[client_key][0] == pseudo:
                             # cookie identification
                             connection.sendall("$send_cookie\n".encode(FORMAT))
                             clients_cookie = connection.recv(1024).decode()
@@ -124,20 +124,24 @@ def gestion_message(connection, client_address, server_socket):
                     connection.sendall("$HEARTBEAT\n".encode(FORMAT))
                 if client_message.startswith('@'):
                     private_message = True
-                    if len(client_message.split(' ')) < 2:
-                        connection.sendall("Veuillez spécifier le destinataire et le message.\n".encode(FORMAT))
+                    recipients = []
+                    message = client_message[1:].split(' ', 1)
+                    if len(message) < 2:
+                        connection.sendall("Veuillez spécifier le(s) destinataire(s) et le message.\n".encode(FORMAT))
                     else:
-                        dest_pseudo, message = client_message[1:].split(' ', 1)
-                        dest_socket = None
-                        for client_socket, val in clients_dict.items():
-                            conn, addr = client_socket
-                            if val[0] == dest_pseudo and conn != connection and val[1] == "connected":
-                                dest_socket = client_socket[0]
-                                break
-                        if dest_socket:
-                            dest_socket.sendall(f"{pseudo} (privé): {message}\n".encode(FORMAT))
+                        dest_pseudos = message[0].split('@')[1:]
+                        message = message[1]
+                        for dest_pseudo in dest_pseudos:
+                            for client_socket, val in clients_dict.items():
+                                conn, addr = client_socket
+                                if val[0].lower() == dest_pseudo.lower() and conn != connection and val[1] == "connected":
+                                    dest_socket = client_socket[0]
+                                    recipients.append(dest_socket)
+                        if recipients:
+                            for dest_socket in recipients:
+                                dest_socket.sendall(f"{pseudo} (privé): {message}\n".encode(FORMAT))
                         else:
-                            connection.sendall("Le destinataire n'existe pas.\n".encode(FORMAT))
+                            connection.sendall("Le(s) destinataire(s) n'existe(nt) pas.\n".encode(FORMAT))
                 elif client_message.startswith('!'):
                     if client_message == "!DISCONNECT":
                         socket_to_remove = (connection, client_address)
@@ -191,8 +195,8 @@ def signal_handler(sig, frame):
     server.close()
     sys.exit(0)
 
-def how_many_players():
-    """Return the number of connected players."""
+def how_many_players(players):
+    """Retourn le nombre des joueurs connectées."""
     return len(players)
 
 def check_heartbeat():
