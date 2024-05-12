@@ -239,13 +239,13 @@ def handle_client(connection, client_address):
     print(f"[NEW CONNECTION] {client_address} connected.")
     if game_started:
         connection.sendall("La partie a déjà commencé. Vous ne pouvez pas vous connecter.\n".encode(FORMAT))
-        connection.close()
-        return
+        
     clients_dict[(connection, client_address)] = [None, "connected", f"last-heartbeat: {time.time()}", "alive"]
     # sockets_list = creation_socket(server)
     try:
-        welcome_message = "Bienvenu sur le serveur!"
-        connection.send(welcome_message.encode(FORMAT))
+        if game_started is False:
+            welcome_message = "Bienvenu sur le serveur!"
+            connection.send(welcome_message.encode(FORMAT))
         while clients_dict[(connection, client_address)][1] == "connected":
             gestion_message(connection, client_address, server)
 
@@ -356,6 +356,16 @@ def send_heartbeats():
         for client, info in clients_dict.items():
             if info[0] is not None and info[1] == "connected":
                 client[0].sendall(b"$HEARTBEAT\n")
+
+def checkifgameisdone():
+    global clients_dict
+    global game_started
+    while True:
+        if game_started:
+            if how_many_connected() == 0:
+                print("Game is done.")
+                game_started = False
+        time.sleep(5)
 
 def main():
     global clients_dict
