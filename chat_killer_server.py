@@ -155,14 +155,8 @@ def gestion_message(connection, client_address, server_socket):
                         socket_to_remove = (connection, client_address)
                         connection.close()
                         clients_dict[(connection, client_address)][1] = "disconnected"
-                        print("Sockets list before:", sockets_list)
                         if socket_to_remove in sockets_list:
                             sockets_list.remove(socket_to_remove)
-                            print("socket removed")
-                            #print("Sockets list after:", sockets_list)
-                            #print("Current clients dict:", clients_dict)
-                        else:
-                            print("socket not caught")
                     elif client_message == "!list":
                         connection.sendall(f"Nombre de joueurs connectés: {len(clients_dict)}\n".encode(FORMAT))
                         for client_socket, val in clients_dict.items():
