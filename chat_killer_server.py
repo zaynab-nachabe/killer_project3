@@ -139,6 +139,7 @@ def gestion_message(connection, client_address, server_socket):
                 if client_message == "$HEARTBEAT":
                     clients_dict[connection][2] = f"last-heartbeat:{time.time()}"
                     connection.sendall("$HEARTBEAT\n".encode(FORMAT))
+                    print(f"Received heartbeat from {pseudo}")
                 if client_message.startswith('@'):
                     private_message = True
                     if len(client_message.split(' ')) < 2:
@@ -356,6 +357,7 @@ def send_heartbeats():
         for client, info in clients_dict.items():
             if info[0] is not None and info[1] == "connected":
                 client[0].sendall(b"$HEARTBEAT\n")
+                print(f"Sent heartbeat to {info[0]}")
 
 def checkifgameisdone():
     global clients_dict
