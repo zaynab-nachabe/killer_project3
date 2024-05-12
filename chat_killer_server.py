@@ -108,6 +108,12 @@ def gestion_message(connection, client_address, server_socket):
                             # cookie identification
                             connection.sendall("$send_cookie\n".encode(FORMAT))
                             clients_cookie = connection.recv(1024).decode()
+                            if clients_cookie == DISCONNECT_MESSAGE:
+                                socket_to_remove = (connection, client_address)
+                                connection.close()
+                                clients_dict[(connection, client_address)][1] = "disconnected"
+                                if socket_to_remove in sockets_list:
+                                    sockets_list.remove(socket_to_remove)
                             if clients_cookie != cookie_dictionary[pseudo]:
                                 connection.sendall("$cookie_id_failed\n".encode(FORMAT))
                                 connection.sendall("Identification échouée\n".encode(FORMAT))
