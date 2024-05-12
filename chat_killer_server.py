@@ -48,11 +48,7 @@ game_started = False
 cookie_dictionary = {}
 
 def bake_cookie_id():
-    dough_time = str(int(time.time() * 1000))
-    dough_remaining = 32 - len(dough_time)
-    chocolate_chips = ''.join(random.choices('0123456789', k=dough_remaining))
-    baked_cookie = dough_time + chocolate_chips
-    cookie_id = int(baked_cookie)
+    cookie_id = random.randint(1000000000,9999999999)
     return cookie_id
 
 def how_many_connected():
@@ -97,7 +93,7 @@ def gestion_message(connection, client_address, server_socket):
                                 copycatconn, copycataddr = client_key
                                 copycatsocket = (copycatconn, copycataddr)
                         # if the user was disconnected and tries to reconnect with the same pseudo
-                        if clients_dict[client_key][1] == "disconnected" and clients_dict[client_key][0] == pseudo and clients_dict[client_key][3] == "alive":
+                        if clients_dict[client_key][1] == "disconnected" and clients_dict[client_key][0] == pseudo:
                             # cookie identification
                             connection.sendall("$send_cookie\n".encode(FORMAT))
                             clients_cookie = connection.recv(1024).decode()
@@ -116,7 +112,6 @@ def gestion_message(connection, client_address, server_socket):
                     else:
                         clients_dict[(connection, client_address)] = [pseudo, "connected", f"last-heartbeat: {time.time()}", "alive"]
                         sockets_list.append((connection, client_address))
-                        connection.sendall("Pseudo reçu!\n".encode(FORMAT))
                         cookie = bake_cookie_id()
                         cookie_dictionary[pseudo] = cookie
                         connection.sendall(f"$cookie={cookie}\n".encode(FORMAT))

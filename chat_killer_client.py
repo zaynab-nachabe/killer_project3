@@ -29,8 +29,9 @@ server_Status = None
 user_Closed = False
 # Storing pseudo chosen by user
 pseudo_Global = None
-# Flag for cookie directory and file creation function
-cookie_dirAndFile_created = False
+# threading event for cookie directory creation function ; threading event to know when to write cookie data
+cookie_dir_created = threading.Event()
+cookie_baked = threading.Event()
 # Store cookie data
 cookie_data = None
 # Initialize pid variables for xterms, to be changed dynamically to correct values
@@ -69,12 +70,10 @@ def send(msg):
     client.send(message)
 
 def create_cookie_dir(pseudo): # creates the cookie file for a specific pseudo as soon as pseudo is chosen
-    global cookie_dirAndFile_created
+    global cookie_dir_created
     try:
         os.mkdir(f"/var/tmp/{pseudo}") # creates pseudo directory
-        cookie_dirAndFile_created = True
-        print("Creating cookie directory ...")
-        time.sleep(1)
+        cookie_dir_created.set()
         print(f"Cookie directory successfully created for pseudo: {pseudo}")
     except OSError as err:
         print(f"Erreur creation directory \"/var/tmp/{pseudo}\": (%d)"%(err.errno),file=sys.stderr)
@@ -152,13 +151,13 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
                     continue
         
 def receive(fd, socket):
-    global cookie_dirAndFile_created
+    global cookie_dir_created
     global cookie_data
+    global cookie_baked
     global connection_established
 
     while True:
-
-        connection_established.wait()
+        #connection_established.wait()
         try:
             select.select([socket], [], []) # Wait for server
         except ValueError:
@@ -172,6 +171,7 @@ def receive(fd, socket):
             if server_message:
                 if server_message.startswith("$cookie="):
                     cookie_data = server_message[8:]
+                    cookie_baked.set()
                     print(f"cookie data received: {cookie_data}")
                 print(server_message.strip())
                 os.write(fd, server_message.encode(FORMAT))
@@ -244,8 +244,9 @@ def gracefulclean_signalhandler(signum, frame):
     client_Cleanup()
 
 def main():
-    global cookie_dirAndFile_created
+    global cookie_dir_created
     global cookie_data
+    global cookie_baked
     global pseudo_Global
     global unique_FIFO
     global unique_LOG
@@ -292,24 +293,25 @@ def main():
     
     # Keeps main thread active until the either captured SIGINT or user closes FIFO with !close
     while not user_Closed:
-        if cookie_dirAndFile_created:
-            try:
-                fd_c = os.open(f"/var/tmp/{pseudo_Global}/cookie", os.O_RDWR|os.O_TRUNC|os.O_CREAT) # creates cookie and leaves fd_c open, waiting to receive cookie data from server
-                print("fd_c opened")
-            except OSError as err:
-                print(f"Erreur creation cookie \"/var/tmp/{pseudo_Global}/cookie\": (%d)"%(err.errno),file=sys.stderr)
-            cookie_dirAndFile_created = False # Make the flag revert to false so that the if condition isn't entered every while iteration once it's True
-        # Once cookie data is received and stored in cookie_data variable, write it to the cookie fd and then change stored data in variable back to None to prevent constant loop
-        if cookie_data is not None:
-            os.write(fd_c, cookie_data.encode(FORMAT))
-            print("Data written to cookie :D")
-            cookie_data = None
-        time.sleep(0.5)
+        if cookie_baked.wait(timeout=0.1):
+            cookie_dir_created.wait(timeout=1)
+            if cookie_dir_created.is_set():
+                try:
+                    fd_c = os.open(f"/var/tmp/{pseudo_Global}/cookie", os.O_RDWR|os.O_TRUNC|os.O_CREAT) # creates cookie and leaves fd_c open, waiting to receive cookie data from server
+                except OSError as err:
+                    print(f"Erreur creation cookie \"/var/tmp/{pseudo_Global}/cookie\": (%d)"%(err.errno),file=sys.stderr)
+                cookie_dir_created.clear() # Make the flag revert to false so that the if condition isn't entered every while iteration once it's True
+                # Once cookie data is received and stored in cookie_data variable, write it to the cookie fd and then change stored data in variable back to None to prevent constant loop
+                os.write(fd_c, cookie_data.encode(FORMAT))
+                print("Cookie data received and written to file.")
+                cookie_baked.clear()
+        
     # Override signal that keeps xterms open
     signal.signal(signal.SIGCLD, signal.SIG_DFL)
     # close the open files
     os.close(fdr)   
     os.close(fdw)
+    os.close(fd_c)
     client_Cleanup()
     
 if __name__ == "__main__":
