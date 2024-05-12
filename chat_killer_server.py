@@ -130,7 +130,7 @@ def gestion_message(connection, client_address, server_socket):
                         clients_dict[(connection, client_address)] = [pseudo, "connected", f"last-heartbeat: {time.time()}", "alive"]
                         sockets_list.append((connection, client_address))
                         cookie = bake_cookie_id()
-                        cookie_dictionary[pseudo] = cookie
+                        cookie_dictionary[pseudo] = str(cookie)
                         connection.sendall(f"$cookie={cookie}\n".encode(FORMAT))
                 else:
                     pass
