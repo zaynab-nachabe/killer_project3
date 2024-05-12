@@ -141,17 +141,18 @@ def gestion_message(connection, client_address, server_socket):
                     if len(client_message.split(' ')) < 2:
                         connection.sendall("Veuillez spécifier le destinataire et le message.\n".encode(FORMAT))
                     else:
-                        dest_pseudo, message = client_message[1:].split(' ', 1)
-                        dest_socket = None
-                        for client_socket, val in clients_dict.items():
-                            conn, addr = client_socket
-                            if val[0] == dest_pseudo and conn != connection and val[1] == "connected":
-                                dest_socket = client_socket[0]
-                                break
-                        if dest_socket:
-                            dest_socket.sendall(f"{pseudo} (privé): {message}\n".encode(FORMAT))
-                        else:
-                            connection.sendall("Le destinataire n'existe pas.\n".encode(FORMAT))
+                        pseudo_list, message = parse_private_message(client_message)
+                        for pseudo_destinataire in pseudo_list:
+                            for clients_key, clients_values in clients_dict.items():
+                                if clients_values[0] == pseudo_destinataire:
+                                    conn, addr = clients_key
+                                    if clients_values[1] == "connected":
+                                        conn.sendall(f"Message privé de {pseudo}: {message}\n".encode(FORMAT))
+                                    else:
+                                        connection.sendall(f"Le joueur {pseudo_destinataire} n'est pas connecté.\n".encode(FORMAT))
+                            # if the pseudo doesn't exist in the dictionary
+                            if pseudo_destinataire not in [var[0] for key, var in clients_dict.items()]:
+                                connection.sendall(f"Le joueur {pseudo_destinataire} n'existe pas.\n".encode(FORMAT))
                 elif client_message.startswith('!'):
                     if client_message == "!DISCONNECT":
                         socket_to_remove = (connection, client_address)
