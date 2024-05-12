@@ -238,7 +238,7 @@ def handle_client(connection, client_address):
     global game_started
     print(f"[NEW CONNECTION] {client_address} connected.")
     if game_started:
-        connection.sendall("La partie a déjà commencé. Tenter de vous connecter avec votre ancien pseudo\n".encode(FORMAT))
+        connection.sendall("La partie a déjà commencé. Tenter de vous connecter avec votre ancien pseudo. \n".encode(FORMAT))
         
     clients_dict[(connection, client_address)] = [None, "connected", f"last-heartbeat: {time.time()}", "alive"]
     # sockets_list = creation_socket(server)
