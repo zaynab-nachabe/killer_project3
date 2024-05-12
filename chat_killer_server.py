@@ -64,6 +64,20 @@ def creation_socket(server):
     # Liaison du socket à l'adresse et au port spécifiés
     return sockets_list
 
+def parse_private_message(client_message):
+    # check how many pseudoes are in the message
+    # parse until the word doesn't start with @
+    pseudo = []
+    message_split = client_message.split(' ')
+    while message_split[0].startswith('@'):
+        pseudo.append(message_split[0][1:])
+        message_split = message_split[1:]
+    message = ' '.join(message_split)
+    # parse through pseudo and remove the @ in front of each pseudo
+    for i in range(len(pseudo)):
+        pseudo[i] = pseudo[i][1:]
+    return pseudo, message
+
 def gestion_message(connection, client_address, server_socket):
     global clients_dict
     global cache_info_stack
