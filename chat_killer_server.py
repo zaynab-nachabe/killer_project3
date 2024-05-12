@@ -379,9 +379,9 @@ def main():
     # thread4 = threading.Thread(target=send_heartbeats)
     # thread4.daemon = True
     # thread4.start()
-    # thread3 = threading.Thread(target=handle_server_input)
-    # thread3.daemon = True
-    # thread3.start()
+    thread3 = threading.Thread(target=handle_server_input)
+    thread3.daemon = True
+    thread3.start()
     while True:
         conn, addr = server.accept()
         thread = threading.Thread(target=handle_client, args=(conn, addr))
