@@ -64,6 +64,17 @@ def creation_socket(server):
     # Liaison du socket à l'adresse et au port spécifiés
     return sockets_list
 
+def parse_private_message(client_message):
+    # check how many pseudoes are in the message
+    # parse until the word doesn't start with @
+    pseudo = []
+    message_split = client_message.split(' ')
+    while message_split[0].startswith('@'):
+        pseudo.append(message_split[0][1:])
+        message_split = message_split[1:]
+    message = ' '.join(message_split)
+    return pseudo, message
+
 def gestion_message(connection, client_address, server_socket):
     global clients_dict
     global cache_info_stack
@@ -127,30 +138,25 @@ def gestion_message(connection, client_address, server_socket):
                     if len(client_message.split(' ')) < 2:
                         connection.sendall("Veuillez spécifier le destinataire et le message.\n".encode(FORMAT))
                     else:
-                        dest_pseudo, message = client_message[1:].split(' ', 1)
-                        dest_socket = None
-                        for client_socket, val in clients_dict.items():
-                            conn, addr = client_socket
-                            if val[0] == dest_pseudo and conn != connection and val[1] == "connected":
-                                dest_socket = client_socket[0]
-                                break
-                        if dest_socket:
-                            dest_socket.sendall(f"{pseudo} (privé): {message}\n".encode(FORMAT))
-                        else:
-                            connection.sendall("Le destinataire n'existe pas.\n".encode(FORMAT))
+                        pseudo_list, message = parse_private_message(client_message)
+                        for pseudo_destinataire in pseudo_list:
+                            for clients_key, clients_values in clients_dict.items():
+                                if clients_values[0] == pseudo_destinataire:
+                                    conn, addr = clients_key
+                                    if clients_values[1] == "connected":
+                                        conn.sendall(f"Message privé de {pseudo}: {message}\n".encode(FORMAT))
+                                    else:
+                                        connection.sendall(f"Le joueur {pseudo_destinataire} n'est pas connecté.\n".encode(FORMAT))
+                            # if the pseudo doesn't exist in the dictionary
+                            if pseudo_destinataire not in [var[0] for key, var in clients_dict.items()]:
+                                connection.sendall(f"Le joueur {pseudo_destinataire} n'existe pas.\n".encode(FORMAT))
                 elif client_message.startswith('!'):
                     if client_message == "!DISCONNECT":
                         socket_to_remove = (connection, client_address)
                         connection.close()
                         clients_dict[(connection, client_address)][1] = "disconnected"
-                        print("Sockets list before:", sockets_list)
                         if socket_to_remove in sockets_list:
                             sockets_list.remove(socket_to_remove)
-                            print("socket removed")
-                            #print("Sockets list after:", sockets_list)
-                            #print("Current clients dict:", clients_dict)
-                        else:
-                            print("socket not caught")
                     elif client_message == "!list":
                         connection.sendall(f"Nombre de joueurs connectés: {len(clients_dict)}\n".encode(FORMAT))
                         for client_socket, val in clients_dict.items():
