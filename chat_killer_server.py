@@ -28,7 +28,8 @@ SHUTDOWN_MESSAGE = "!SERVER_SHUTDOWN"
 if len(sys.argv) > 1:
     PORT = int(sys.argv[1])
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 server.bind(ADDR)
 server.listen()
 
@@ -52,11 +53,6 @@ def how_many_connected():
         if value[1] == "connected":
             count += 1
     return count
-
-def creation_socket(server):
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    # Liaison du socket à l'adresse et au port spécifiés
-    return sockets_list
 
 def parse_private_message(client_message):
     # check how many pseudoes are in the message
@@ -238,7 +234,6 @@ def handle_client(connection, client_address):
         connection.sendall("La partie a déjà commencé. Tenter de vous connecter avec votre ancien pseudo. \n".encode(FORMAT))
         
     clients_dict[(connection, client_address)] = [None, "connected", "connection-active", "alive"]
-    # sockets_list = creation_socket(server)
     try:
         if game_started is False:
             welcome_message = "Bienvenu sur le serveur!\n"
