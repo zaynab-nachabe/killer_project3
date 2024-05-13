@@ -184,10 +184,10 @@ def gestion_message(connection, client_address, server_socket):
                         if private_message is False and heartbeat_message is False:
                             for client_socket, val in clients_dict.items():
                                 conn, addr = client_socket
-                                pseudo = val[0]
+                                pseudo_envoyeur = clients_dict[(connection, client_address)][0]
                                 if client_socket != server_socket and client_socket != connection:
                                     if val[1] == "connected":  # Check if client is still connected
-                                        conn.sendall(f"{pseudo}: {client_message}\n".encode(FORMAT))
+                                        conn.sendall(f"{pseudo_envoyeur}: {client_message}\n".encode(FORMAT))
             else:
                 pass
         except Exception as error:
