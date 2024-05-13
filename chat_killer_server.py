@@ -312,7 +312,14 @@ def handle_server_input():
         elif command == "!shutdown":
             for client in clients_dict.keys():
                 if clients_dict[client][1] == "connected":
-                    client[0].sendall(SHUTDOWN_MESSAGE.encode(FORMAT))
+                    try:
+                        client[0].sendall(SHUTDOWN_MESSAGE.encode(FORMAT))
+                    except ConnectionResetError:
+                        print(f"[ERROR] Connection lost with {client[1]}")
+                    except ConnectionAbortedError:
+                        print(f"[ERROR] Connection lost with {client[1]}")
+                    finally:
+                        client[0].close()
             server.close()
             sys.exit(0)
         elif command == "!start":
