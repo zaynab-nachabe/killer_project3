@@ -103,10 +103,15 @@ def gestion_message(connection, client_address, server_socket):
                 if clients_dict[client_key][3] == "suspended":
                     connection.sendall("Vous avez été suspendu. Vous ne pouvez pas envoyer de messages tant que vous n'êtes pas excusé. (forgive(n))\n".encode(FORMAT))
                 elif clients_dict[client_key][3] == "banned":
-                    connection.sendall("Vous avez été banni. Vous ne pouvez pas envoyer de messages.\n".encode(FORMAT))
+                    connection.sendall("Vous avez été bann,i. Vous ne pouvez pas envoyer de messages.\n".encode(FORMAT))
                 elif client_message.startswith("$HEARTBEAT?"):
                     heartbeat_message = True
                     connection.sendall("$HEARTBEAT!".encode(FORMAT))
+                    clients_dict[(connection, client_address)][2] = "connection-active"
+                    print(f"Received heartbeat from {(connection, client_address)}")
+                elif client_message.startswith("$HEARTBEAT!"):
+                    heartbeat_message = True
+                    connection.sendall("$HEARTBEAT?".encode(FORMAT))
                     clients_dict[(connection, client_address)][2] = "connection-active"
                     print(f"Received heartbeat from {(connection, client_address)}")
                 elif client_key in clients_dict and clients_dict[client_key][0] is None and clients_dict[client_key][3] == "alive":
