@@ -19,38 +19,26 @@ import select
 # Constants
 HEADER = 64
 PORT = 5050
-SERVER = "127.0.0.1" # socket.gethostbyname(socket.gethostname()) # get the IP address of the machine
+SERVER = "127.0.0.1"
 ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
 SHUTDOWN_MESSAGE = "!SERVER_SHUTDOWN"
 
-clients_dict = {}
-
-shutdown = False
-
-shutdown_event = threading.Event()
-
-cache_info_stack = []
+if len(sys.argv) > 1:
+    PORT = int(sys.argv[1])
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-# AF_INET is the address family for IPv4, and SOCK_STREAM is the socket type for TCP
-
 server.bind(ADDR)
-# The address is a tuple containing the hostname and port number
-# essentially, this is the server's address and port number that the server will listen on
-# Écoute des connexions entrantes
 server.listen()
 
 print("Serveur démarré sur le port", PORT)
 
-# Liste des sockets à surveiller pour les entrées
+clients_dict = {}
 sockets_list = [server]
-
 private_message = False
 game_started = False
 heartbeat_message = False
-
 cookie_dictionary = {}
 
 def bake_cookie_id():
@@ -213,8 +201,6 @@ def gestion_message(connection, client_address, server_socket):
                 print("File descriptor:", connection.fileno())
                 print("Socket closed. Ignoring further processing.")
             clients_dict[(connection, client_address)][1] = "fucked up"
-            #if (connection, client_address) in sockets_list:
-            #    sockets_list.remove((connection, client_address))
     else:
         heartbeat_message = "$HEARTBEAT?"
         connection.sendall(heartbeat_message.encode(FORMAT))
@@ -231,49 +217,16 @@ def gestion_message(connection, client_address, server_socket):
             print(f"{pseudo_hb} appears to be disconnected!")
 
 def signal_handler(sig, frame):
-    global shutdown
     """Handle graceful shutdown on SIGINT."""
     print("\n[SHUTDOWN] Server is shutting down...")
-    shutdown = True
     for client, info in clients_dict.items():
         if info[1] == "connected":
             try:
                 client[0].sendall(SHUTDOWN_MESSAGE.encode(FORMAT))
             except:
                 pass
-    shutdown_event.is_set()
     server.close()
     sys.exit(0)
-
-
-def how_many_players():
-    """Return the number of connected players."""
-    return len(players)
-
-def check_heartbeat():
-    global cache_info_stack
-    global clients_dict
-    while True:
-        time.sleep(5)
-        try:
-            for clients, info in clients_dict.items():
-                if info[0] is None:
-                    continue
-                else:
-                    last_heartbeat_of_client = info[2].split(":")[1]
-                    last_heartbeat_of_client = float(last_heartbeat_of_client)
-                    if (last_heartbeat_of_client < time.time() - 15) and clients_dict[clients][1] != "disconnected":
-                        print(f"Client {info[0]} is disconnected")
-                        clients_dict[clients][1] = "disconnected"
-                        cache_info_stack.append(("Disconnection", info[0], "disconnected"))
-        except RuntimeError as e:
-            pass
-
-def handle_issue():
-    global cache_info_stack
-    issue = cache_info_stack.pop()
-    if issue[0] == "Disconnection":
-        print(f"Handling issue: {issue[1]} is {issue[2]}")
 
 def handle_client(connection, client_address):
     global sockets_list
@@ -286,31 +239,21 @@ def handle_client(connection, client_address):
         
     clients_dict[(connection, client_address)] = [None, "connected", "connection-active", "alive"]
     # sockets_list = creation_socket(server)
-    if shutdown_event.is_set():
-        pass
-    else:
-        try:
-            if game_started is False:
-                welcome_message = "Bienvenu sur le serveur!\n"
-                connection.send(welcome_message.encode(FORMAT))
-            while clients_dict[(connection, client_address)][1] == "connected":
-                if shutdown_event.is_set():
-                    break
-                else:
-                    gestion_message(connection, client_address, server)
-                
-                
-        except ConnectionResetError:
-            print(f"[ERROR] Connection lost with {client_address}")
-        finally:
-            connection.close()
-            clients_dict[(connection, client_address)][1] = "disconnected"
-            print(f"[DISCONNECTION] {client_address} disconnected.")
+    try:
+        if game_started is False:
+            welcome_message = "Bienvenu sur le serveur!\n"
+            connection.send(welcome_message.encode(FORMAT))
+        while clients_dict[(connection, client_address)][1] == "connected":
+            gestion_message(connection, client_address, server)
+    except ConnectionResetError:
+        print(f"[ERROR] Connection lost with {client_address}")
+    finally:
+        connection.close()
+        clients_dict[(connection, client_address)][1] = "disconnected"
+        print(f"[DISCONNECTION] {client_address} disconnected.")
 
 def handle_server_input():
     global clients_dict
-    global shutdown
-    global shutdown_event
     global game_started
     while True:
         command = input("Enter a command: ")
@@ -328,7 +271,6 @@ def handle_server_input():
             for _, info in clients_dict.items():
                 print(f"Player: {info[0]} - the status for their connection is {info[2]}")
         elif command == "!shutdown":
-            shutdown = True
             for client in clients_dict.keys():
                 if clients_dict[client][1] == "connected":
                     try:
@@ -336,7 +278,6 @@ def handle_server_input():
                     except:
                         pass
             os.kill(os.getpid(), signal.SIGINT)
-            shutdown_event.set()
             server.close()
             sys.exit(0)
         elif command == "!start":
@@ -406,30 +347,8 @@ def handle_server_input():
         else:
             print("Commande inconnue.")
 
-# function to send to connected clients heartbeats
-def send_heartbeats():
-    global clients_dict
-    while True:
-        time.sleep(5)
-        for client, info in clients_dict.items():
-            if info[0] is not None and info[1] == "connected":
-                client[0].sendall("$HEARTBEAT\n".encode(FORMAT))
-                print(f"Sent heartbeat to {info[0]}")
-
-def checkifgameisdone():
-    global clients_dict
-    global game_started
-    while True:
-        if game_started:
-            if how_many_connected() == 0:
-                print("Game is done.")
-                game_started = False
-        time.sleep(5)
-
 def main():
     global clients_dict
-    global shutdown_event
-    global shutdown
     server.listen()
     print(f"[LISTENING] server is listening on {SERVER}")
     input_thread = threading.Thread(target=handle_server_input)
