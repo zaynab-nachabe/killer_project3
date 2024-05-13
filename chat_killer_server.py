@@ -34,6 +34,9 @@ shutdown_event = threading.Event()
 cache_info_stack = []
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+
+server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
 # AF_INET is the address family for IPv4, and SOCK_STREAM is the socket type for TCP
 
 server.bind(ADDR)
