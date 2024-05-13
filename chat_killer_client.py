@@ -24,7 +24,7 @@ DISCONNECT_MESSAGE = "!DISCONNECT"
 client = None
 connection_established = threading.Event()
 # Server status global variable, changed with heartbeat
-server_Status = None
+server_Disconnected = threading.Event()
 # Flag for when the user chooses to close after a disconnect through the FIFO, changing logic of SIGCHLD handling
 user_Closed = False
 # Storing pseudo chosen by user
@@ -53,17 +53,6 @@ def connect_server():
         connection_established.set()
     except ConnectionRefusedError:
         return False
-'''
-def heartbeat_client():
-    global connection_established
-    connection_established.wait()
-    while connection_established.is_set():
-        #send("$HEARTBEAT")
-        print("Sent Heartbeat")
-        time.sleep(5)
-    print('Heartbeat not sending, waiting for connection to be established')
-'''
-    
 
 def send(msg):
     message = msg.encode(FORMAT)
@@ -76,7 +65,10 @@ def create_cookie_dir(pseudo): # creates the cookie file for a specific pseudo a
         cookie_dir_created.set()
         print(f"Cookie directory successfully created for pseudo: {pseudo}")
     except OSError as err:
-        print(f"Erreur creation directory \"/var/tmp/{pseudo}\": (%d)"%(err.errno),file=sys.stderr)
+        if err.errno == 17:
+            pass
+        else:
+            print(f"Erreur creation directory \"/var/tmp/{pseudo}\": (%d)"%(err.errno),file=sys.stderr)
 
 
 def FIFO_to_Server(fifo, log): # function handling the user inputs to send to server through a FIFO
@@ -84,11 +76,16 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
     global pseudo_Global
     global connection_established
     global listening_Thread
+    global server_Disconnected
 
     while True:
         try:
             pseudo_chosen = False
+            log_PleaseChoosePseudo = "You must choose a username. Please make your choice with the following format: \n'pseudo=example'\nOtherwise, enter '!DISCONNECT' to leave the server.\n"
+            os.write(log, log_PleaseChoosePseudo.encode(FORMAT))
             while True or not pseudo_chosen: # Continues to listen even if no data to send because of invalid inputs from user
+                if server_Disconnected.is_set():
+                    break
                 select.select([fifo], [], []) # Wait for user input to FIFO
                 msg = os.read(fifo, 2048) # Read the FIFO
                 msg = msg.decode(FORMAT).strip('\n') # Convert bytes to str and strip newline
@@ -108,7 +105,6 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
                     send(msg)
                     break
                 elif msg.startswith('!'):
-                    # Handle command message
                     send(msg)
                 else:
                     send(msg)
@@ -122,7 +118,6 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
             os.write(log, disconnectLogMessage.encode(FORMAT))
             closed_flag = False
             while not closed_flag:
-                print("waiting for input closed flag lvl")
                 select.select([fifo], [], []) # Wait for user input to FIFO
                 close_dc_msg = os.read(fifo, 2048)
                 close_dc_msg = close_dc_msg.decode(FORMAT).strip('\n')
@@ -146,7 +141,7 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
                         listening_Thread.start()
                         break # exit this loop and return to the initial state with the new connection
                 else:
-                    unexpectedLogMsg = "\nSorry, please enter either '!close' or '!reconnect'.\n"
+                    unexpectedLogMsg = "Unexpected input. Please enter either '!close' or '!reconnect'.\n"
                     os.write(log, unexpectedLogMsg.encode(FORMAT))
                     continue
         
@@ -157,32 +152,75 @@ def receive(fd, socket):
     global connection_established
 
     while True:
-        #connection_established.wait()
         try:
-            select.select([socket], [], []) # Wait for server
+            beating_heart, _, _ = select.select([socket], [], [], 1) # Wait for server
         except ValueError:
             print("Value error")
             break
-        try:
-            server_message = socket.recv(2048).decode(FORMAT)
-            if not server_message:
-                print("Connection closed, waiting to reconnect ...")
-                break
-            if server_message:
-                if server_message.startswith("$cookie="):
-                    cookie_data = server_message[8:]
-                    cookie_baked.set()
-                    print(f"cookie data received: {cookie_data}")
-                print(server_message.strip())
-                os.write(fd, server_message.encode(FORMAT))
-        except Exception as e:
-            if e.errno == 9:
-                print("Bad file descriptor, breaking ...")
-                break
+        if beating_heart:
+            try:
+                server_message = socket.recv(2048).decode(FORMAT)
+                if not server_message:
+                    log_ConnectionDroppedMsg = "Connection closed, waiting to reconnect ..."
+                    os.write(fd, log_ConnectionDroppedMsg.encode(FORMAT))
+                    break
+                if server_message:
+                    if server_message.startswith("$cookie="):
+                        cookie_data = server_message[8:]
+                        cookie_baked.set()
+                        print(f"cookie data received: {cookie_data}")
+                    elif server_message.startswith("$send_cookie"):
+                        log_CookieReconnectMsg = "\nAttempting to reconnect with a known pseudo, authenticating ...\n"
+                        os.write(fd, log_CookieReconnectMsg.encode(FORMAT))
+                        try:
+                            with open(f"/var/tmp/{pseudo_Global}/cookie", "r") as file:
+                                cookie_file_contents = file.read()
+                                cookie_stripped = cookie_file_contents.strip()
+                                socket.sendall(cookie_stripped.encode(FORMAT))
+                        except:
+                            log_CookieSendErrorMsg = "Error occured during cookie data retrieval and sending...\n"
+                            os.write(fd, log_CookieSendErrorMsg)
+                            errorMsg = "Error"
+                            socket.sendall(errorMsg.encode(FORMAT))
+                    elif server_message.startswith("$cookie_id_failed"):
+                        log_CookieIdFailedMsg = "Authentification failed. Check spelling for the pseudo.\n"
+                        os.write(fd, log_CookieIdFailedMsg)
+                    elif server_message.startswith("Pseudo déjà pris!"):
+                        log_PseudoPrisMsg = "The pseudo you have chosen is unavailable. Please try again.\n"
+                    elif server_message.startswith("$HEARTBEAT?"):
+                        log_sHBMsg = "$HEARTBEAT!"
+                        socket.sendall(log_sHBMsg.encode(FORMAT))
+                        print("Heartbeat sent.")
+                    elif server_message.startswith("$HEARTBEAT!"):
+                        # Heartbeat received, no parsing necessary, connection considered active
+                        pass
+                    elif server_message.startswith("!SERVER_SHUTDOWN"):
+                        print("shutdown heard")
+                        log_ServerShutdownMsg = "Server has sent a shutdown. Disconnecting ...\n"
+                        os.write(fd, log_ServerShutdownMsg.encode(FORMAT))
+                        server_Disconnected.set()
+                        break
+                    else:
+                        os.write(fd, server_message.encode(FORMAT))
+                        print(server_message.strip())    
+            except Exception as e:
+                if e.errno == 9:
+                    print("Bad file descriptor, breaking ...")
+                    break
+                else:
+                    print('Exception occured for receive function:', e)
+                    break
+        else:
+            heartbeatMsg = "$HEARTBEAT?"
+            socket.sendall(heartbeatMsg.encode(FORMAT))
+            checking_pulse, _, _ = select.select([socket], [], [], 2)
+            if checking_pulse:
+                continue
             else:
-                print('Exception occured for receive function:', e)
+                heartbeatTimeoutMsg = "No Server Heartbeat Detected. Disconnecting ..."
+                os.write(fd, heartbeatTimeoutMsg.encode(FORMAT))
+                server_Disconnected.set()
                 break
-            
 
 # sigchld handler for both xterms, gets the pid associated with the caught SIGCHLD and reopens the correct xterm
 def sigchld_xterm_handler(signum, frame):
@@ -269,7 +307,7 @@ def main():
         fdw = os.open(f"/var/tmp/{unique_FIFO}", os.O_RDWR)
     print("Xterm terminals opened. Please interact with the program through them.")
     # Write connection info to log
-    log_boot_msg = "Connected to the server. \nType messages and commands in killer.fifo terminal.\nYou must choose a username. Please make your choice with the following format: \n'pseudo=example'\nOtherwise, enter '!DISCONNECT' to leave the server.\n"
+    log_boot_msg = "Connected to the server. \nType messages and commands in killer.fifo terminal.\n"
     os.write(fdr, log_boot_msg.encode(FORMAT))
 
     # thread for xterm crash tolerance
@@ -281,11 +319,7 @@ def main():
     FIFO_to_Server_Thread = threading.Thread(target=FIFO_to_Server, args=(fdw,fdr))
     FIFO_to_Server_Thread.daemon = True
     FIFO_to_Server_Thread.start()
-    '''
-    heartbeat_Thread = threading.Thread(target=heartbeat_client)
-    heartbeat_Thread.daemon = True
-    heartbeat_Thread.start()
-    '''
+ 
     # thread for writing server messages to log
     listening_Thread = threading.Thread(target=receive, args=(fdr,client))
     listening_Thread.daemon = True
@@ -293,7 +327,7 @@ def main():
     
     # Keeps main thread active until the either captured SIGINT or user closes FIFO with !close
     while not user_Closed:
-        if cookie_baked.wait(timeout=0.1):
+        if cookie_baked.wait(timeout=0.01):
             cookie_dir_created.wait(timeout=1)
             if cookie_dir_created.is_set():
                 try:

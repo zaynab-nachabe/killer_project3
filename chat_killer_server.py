@@ -86,7 +86,7 @@ def gestion_message(connection, client_address, server_socket):
     global game_started
     global heartbeat_message
     try:
-        beating_heart, _, _ = select.select([connection], [], [], 1)
+        beating_heart, _, _ = select.select([connection], [], [], 3)
     except select.error as e:
         print("Error:", e)
     except socket.error as e:
@@ -108,12 +108,12 @@ def gestion_message(connection, client_address, server_socket):
                     heartbeat_message = True
                     connection.sendall("$HEARTBEAT!".encode(FORMAT))
                     clients_dict[(connection, client_address)][2] = "connection-active"
-                    print(f"Received heartbeat from {(connection, client_address)}")
+                    #print(f"Received heartbeat from {(connection, client_address)}")
                 elif client_message.startswith("$HEARTBEAT!"):
                     heartbeat_message = True
                     connection.sendall("$HEARTBEAT?".encode(FORMAT))
                     clients_dict[(connection, client_address)][2] = "connection-active"
-                    print(f"Received heartbeat from {(connection, client_address)}")
+                    #print(f"Received heartbeat from {(connection, client_address)}")
                 elif client_key in clients_dict and clients_dict[client_key][0] is None and clients_dict[client_key][3] == "alive":
                     if client_message.startswith("pseudo="):
                         pseudo = client_message.split("=")[1].strip()
