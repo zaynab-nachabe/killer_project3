@@ -203,7 +203,7 @@ def gestion_message(connection, client_address, server_socket):
     else:
         heartbeat_message = "$HEARTBEAT?"
         connection.sendall(heartbeat_message.encode(FORMAT))
-        checking_pulse, _, _ = select.select([],[],[], 1)
+        checking_pulse, _, _ = select.select([connection],[],[], 1)
         if checking_pulse:
             continue
         else:
