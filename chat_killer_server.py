@@ -232,8 +232,10 @@ def signal_handler(sig, frame):
     print("\n[SHUTDOWN] Server is shutting down...")
     for client, info in clients_dict.items():
         if info[1] == "connected":
-            client[0].send(SHUTDOWN_MESSAGE.encode(FORMAT))
-            client[0].close()
+            try:
+                client[0].sendall(SHUTDOWN_MESSAGE.encode(FORMAT))
+            except:
+                pass
     # gracefully close the server socket
     server.close()
     sys.exit(0)
@@ -314,12 +316,8 @@ def handle_server_input():
                 if clients_dict[client][1] == "connected":
                     try:
                         client[0].sendall(SHUTDOWN_MESSAGE.encode(FORMAT))
-                    except ConnectionResetError:
-                        print(f"[ERROR] Connection lost with {client[1]}")
-                    except ConnectionAbortedError:
-                        print(f"[ERROR] Connection lost with {client[1]}")
-                    finally:
-                        client[0].close()
+                    except:
+                        pass
             server.close()
             sys.exit(0)
         elif command == "!start":
