@@ -160,7 +160,7 @@ def gestion_message(connection, client_address, server_socket):
                                     if clients_values[0] == pseudo_destinataire:
                                         conn, addr = clients_key
                                         if clients_values[1] == "connected":
-                                            conn.sendall(f"Message privé de {pseudo}: {message}\n".encode(FORMAT))
+                                            conn.sendall(f"Message privé de {clients_dict[(connection, client_address)][0]}: {message}\n".encode(FORMAT))
                                         else:
                                             connection.sendall(f"Le joueur {pseudo_destinataire} n'est pas connecté.\n".encode(FORMAT))
                                 # if the pseudo doesn't exist in the dictionary
