@@ -230,10 +230,11 @@ def gestion_message(connection, client_address, server_socket):
                 pseudo_hb = clients_dict[(connection, client_address)][0]
             print(f"{pseudo_hb} appears to be disconnected!")
 
-
 def signal_handler(sig, frame):
+    global shutdown
     """Handle graceful shutdown on SIGINT."""
     print("\n[SHUTDOWN] Server is shutting down...")
+    shutdown = True
     for client, info in clients_dict.items():
         if info[1] == "connected":
             try:
@@ -241,8 +242,8 @@ def signal_handler(sig, frame):
             except:
                 pass
     shutdown_event.is_set()
-    # server.close()
-    # sys.exit(0)
+    server.close()
+    sys.exit(0)
 
 
 def how_many_players():
@@ -278,29 +279,38 @@ def handle_client(connection, client_address):
     global sockets_list
     global clients_dict
     global game_started
+    global shutdown_event
     print(f"[NEW CONNECTION] {client_address} connected.")
     if game_started:
         connection.sendall("La partie a déjà commencé. Tenter de vous connecter avec votre ancien pseudo. \n".encode(FORMAT))
         
     clients_dict[(connection, client_address)] = [None, "connected", "connection-active", "alive"]
     # sockets_list = creation_socket(server)
-    try:
-        if game_started is False:
-            welcome_message = "Bienvenu sur le serveur!\n"
-            connection.send(welcome_message.encode(FORMAT))
-        while clients_dict[(connection, client_address)][1] == "connected":
-            gestion_message(connection, client_address, server)
-
-    except ConnectionResetError:
-        print(f"[ERROR] Connection lost with {client_address}")
-    finally:
-        connection.close()
-        clients_dict[(connection, client_address)][1] = "disconnected"
-        print(f"[DISCONNECTION] {client_address} disconnected.")
+    if shutdown_event.is_set():
+        pass
+    else:
+        try:
+            if game_started is False:
+                welcome_message = "Bienvenu sur le serveur!\n"
+                connection.send(welcome_message.encode(FORMAT))
+            while clients_dict[(connection, client_address)][1] == "connected":
+                if shutdown_event.is_set():
+                    break
+                else:
+                    gestion_message(connection, client_address, server)
+                
+                
+        except ConnectionResetError:
+            print(f"[ERROR] Connection lost with {client_address}")
+        finally:
+            connection.close()
+            clients_dict[(connection, client_address)][1] = "disconnected"
+            print(f"[DISCONNECTION] {client_address} disconnected.")
 
 def handle_server_input():
     global clients_dict
     global shutdown
+    global shutdown_event
     global game_started
     while True:
         command = input("Enter a command: ")
@@ -325,9 +335,10 @@ def handle_server_input():
                         client[0].sendall(SHUTDOWN_MESSAGE.encode(FORMAT))
                     except:
                         pass
-            shutdown_event.is_set()
-            # server.close()
-            # sys.exit(0)
+            os.kill(os.getpid(), signal.SIGINT)
+            shutdown_event.set()
+            server.close()
+            sys.exit(0)
         elif command == "!start":
             game_started = True
             print("Game started.")
@@ -417,22 +428,14 @@ def checkifgameisdone():
 
 def main():
     global clients_dict
+    global shutdown_event
+    global shutdown
     server.listen()
     print(f"[LISTENING] server is listening on {SERVER}")
-    # thread2 = threading.Thread(target=check_heartbeat)
-    # thread2.daemon = True
-    # thread2.start()
-    # thread4 = threading.Thread(target=send_heartbeats)
-    # thread4.daemon = True
-    # thread4.start()
-
-    thread3 = threading.Thread(target=handle_server_input)
-    thread3.daemon = True
-    thread3.start()
-    
+    input_thread = threading.Thread(target=handle_server_input)
+    input_thread.daemon = True
+    input_thread.start()
     while True:
-        if shutdown_event.is_set():
-            break
         conn, addr = server.accept()
         thread = threading.Thread(target=handle_client, args=(conn, addr))
         thread.daemon = True
@@ -440,32 +443,10 @@ def main():
         print()
         print(f"[ACTIVE CONNECTIONS] {how_many_connected()}")
     
-    print("[SHUTDOWN] Server is finally shutting down...")
-    
-    """
-
-    threads = []
-    try:
-        while True:
-            if shutdown: 
-                print("[SHUTDOWN] Server is shutting down...")
-                break
-            conn, addr = server.accept()
-            thread = threading.Thread(target=handle_client, args=(conn, addr))
-            thread.daemon = False
-            thread.start()
-            threads.append(thread)
-            print()
-            print(f"[ACTIVE CONNECTIONS] {how_many_connected()}")
-    finally:
-        server.close()
-        for t in threads:
-            t.join()
-
-    """
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     print("[STARTING] server is starting...")
     main()
+    sys.exit(0)
 

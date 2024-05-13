@@ -195,7 +195,7 @@ def receive(fd, socket):
                         # Heartbeat received, no parsing necessary, connection considered active
                         pass
                     elif server_message.startswith("!SERVER_SHUTDOWN"):
-                        print("shutdown heard")
+                        
                         log_ServerShutdownMsg = "Server has sent a shutdown. Disconnecting ...\n"
                         os.write(fd, log_ServerShutdownMsg.encode(FORMAT))
                         server_Disconnected.set()
