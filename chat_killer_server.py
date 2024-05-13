@@ -85,148 +85,146 @@ def gestion_message(connection, client_address, server_socket):
     global private_message
     global game_started
     global heartbeat_message
-    while True:
+    try:
+        beating_heart, _, _ = select.select([connection], [], [], 3)
+    except select.error as e:
+        print("Error:", e)
+    except socket.error as e:
+        print("Error:", e)
+    if beating_heart:
         try:
-            beating_heart, _, _ = select.select([connection], [], [], 3)
-        except select.error as e:
-            print("Error:", e)
-        except socket.error as e:
-            print("Error:", e)
-        if beating_heart:
-            try:
-                private_message = False
-                heartbeat_message = False
-                client_message = connection.recv(1024).decode()
-                #print("Clients dict:", clients_dict)
-                if client_message:
-                    client_key = (connection, client_address)
-                    # if suspended, send a message to the client and not share the message with other clients
-                    if clients_dict[client_key][3] == "suspended":
-                        connection.sendall("Vous avez été suspendu. Vous ne pouvez pas envoyer de messages tant que vous n'êtes pas excusé. (forgive(n))\n".encode(FORMAT))
-                    elif clients_dict[client_key][3] == "banned":
-                        connection.sendall("Vous avez été bann,i. Vous ne pouvez pas envoyer de messages.\n".encode(FORMAT))
-                    elif client_message.startswith("$HEARTBEAT?"):
-                        heartbeat_message = True
-                        connection.sendall("$HEARTBEAT!".encode(FORMAT))
-                        clients_dict[(connection, client_address)][2] = "connection-active"
-                        #print(f"Received heartbeat from {(connection, client_address)}")
-                    elif client_message.startswith("$HEARTBEAT!"):
-                        heartbeat_message = True
-                        connection.sendall("$HEARTBEAT?".encode(FORMAT))
-                        clients_dict[(connection, client_address)][2] = "connection-active"
-                        #print(f"Received heartbeat from {(connection, client_address)}")
-                    elif client_key in clients_dict and clients_dict[client_key][0] is None and clients_dict[client_key][3] == "alive":
-                        if client_message.startswith("pseudo="):
-                            pseudo = client_message.split("=")[1].strip()
-                            if pseudo in [var[0] for key, var in clients_dict.items()]:
-                                # extract the client_key of the client with the same pseudo
-                                copycatconn, copycataddr = None, None
-                                copycatsocket = None
-                                for client_key, client_values in clients_dict.items():
-                                    if client_values[0] == pseudo:
-                                        copycatconn, copycataddr = client_key
-                                        copycatsocket = (copycatconn, copycataddr)
-                                # if the user was disconnected and tries to reconnect with the same pseudo
-                                if clients_dict[copycatsocket][1] == "disconnected":
-                                    # cookie identification
-                                    connection.sendall("$send_cookie\n".encode(FORMAT))
-                                    clients_cookie = connection.recv(1024).decode()
-                                    if clients_cookie == DISCONNECT_MESSAGE:
-                                        socket_to_remove = (connection, client_address)
-                                        connection.close()
-                                        clients_dict[(connection, client_address)][1] = "disconnected"
-                                        if socket_to_remove in sockets_list:
-                                            sockets_list.remove(socket_to_remove)
-                                    if clients_cookie != cookie_dictionary[pseudo]:
-                                        connection.sendall("$cookie_id_failed\n".encode(FORMAT))
-                                        connection.sendall("Identification échouée\n".encode(FORMAT))
-                                    else:
-                                        # delete the each_client from the dictionary
-                                        del clients_dict[copycatsocket]
-                                        clients_dict[client_key][0] = pseudo
-                                        clients_dict[client_key][1] = "connected"
-                                        clients_dict[client_key][2] = "connection-active"
-                                        clients_dict[client_key][3] = "alive"
-                                        connection.sendall("Reconnexion réussie!\n".encode(FORMAT))
+            private_message = False
+            heartbeat_message = False
+            client_message = connection.recv(1024).decode()
+            #print("Clients dict:", clients_dict)
+            if client_message:
+                client_key = (connection, client_address)
+                # if suspended, send a message to the client and not share the message with other clients
+                if clients_dict[client_key][3] == "suspended":
+                    connection.sendall("Vous avez été suspendu. Vous ne pouvez pas envoyer de messages tant que vous n'êtes pas excusé. (forgive(n))\n".encode(FORMAT))
+                elif clients_dict[client_key][3] == "banned":
+                    connection.sendall("Vous avez été bann,i. Vous ne pouvez pas envoyer de messages.\n".encode(FORMAT))
+                elif client_message.startswith("$HEARTBEAT?"):
+                    heartbeat_message = True
+                    connection.sendall("$HEARTBEAT!".encode(FORMAT))
+                    clients_dict[(connection, client_address)][2] = "connection-active"
+                    #print(f"Received heartbeat from {(connection, client_address)}")
+                elif client_message.startswith("$HEARTBEAT!"):
+                    heartbeat_message = True
+                    connection.sendall("$HEARTBEAT?".encode(FORMAT))
+                    clients_dict[(connection, client_address)][2] = "connection-active"
+                    #print(f"Received heartbeat from {(connection, client_address)}")
+                elif client_key in clients_dict and clients_dict[client_key][0] is None and clients_dict[client_key][3] == "alive":
+                    if client_message.startswith("pseudo="):
+                        pseudo = client_message.split("=")[1].strip()
+                        if pseudo in [var[0] for key, var in clients_dict.items()]:
+                            # extract the client_key of the client with the same pseudo
+                            copycatconn, copycataddr = None, None
+                            copycatsocket = None
+                            for client_key, client_values in clients_dict.items():
+                                if client_values[0] == pseudo:
+                                    copycatconn, copycataddr = client_key
+                                    copycatsocket = (copycatconn, copycataddr)
+                            # if the user was disconnected and tries to reconnect with the same pseudo
+                            if clients_dict[copycatsocket][1] == "disconnected":
+                                # cookie identification
+                                connection.sendall("$send_cookie\n".encode(FORMAT))
+                                clients_cookie = connection.recv(1024).decode()
+                                if clients_cookie == DISCONNECT_MESSAGE:
+                                    socket_to_remove = (connection, client_address)
+                                    connection.close()
+                                    clients_dict[(connection, client_address)][1] = "disconnected"
+                                    if socket_to_remove in sockets_list:
+                                        sockets_list.remove(socket_to_remove)
+                                if clients_cookie != cookie_dictionary[pseudo]:
+                                    connection.sendall("$cookie_id_failed\n".encode(FORMAT))
+                                    connection.sendall("Identification échouée\n".encode(FORMAT))
                                 else:
-                                    connection.sendall("Pseudo déjà pris!\n".encode(FORMAT))
+                                    # delete the each_client from the dictionary
+                                    del clients_dict[copycatsocket]
+                                    clients_dict[client_key][0] = pseudo
+                                    clients_dict[client_key][1] = "connected"
+                                    clients_dict[client_key][2] = "connection-active"
+                                    clients_dict[client_key][3] = "alive"
+                                    connection.sendall("Reconnexion réussie!\n".encode(FORMAT))
                             else:
-                                clients_dict[(connection, client_address)] = [pseudo, "connected", f"last-heartbeat: {time.time()}", "alive"]
-                                sockets_list.append((connection, client_address))
-                                cookie = bake_cookie_id()
-                                cookie_dictionary[pseudo] = str(cookie)
-                                connection.sendall(f"$cookie={cookie}\n".encode(FORMAT))
+                                connection.sendall("Pseudo déjà pris!\n".encode(FORMAT))
                         else:
-                            pass
+                            clients_dict[(connection, client_address)] = [pseudo, "connected", f"last-heartbeat: {time.time()}", "alive"]
+                            sockets_list.append((connection, client_address))
+                            cookie = bake_cookie_id()
+                            cookie_dictionary[pseudo] = str(cookie)
+                            connection.sendall(f"$cookie={cookie}\n".encode(FORMAT))
                     else:
-                        if client_message.startswith('@'):
-                            private_message = True
-                            if len(client_message.split(' ')) < 2:
-                                connection.sendall("Veuillez spécifier le destinataire et le message.\n".encode(FORMAT))
-                            else:
-                                pseudo_list, message = parse_private_message(client_message)
-                                for pseudo_destinataire in pseudo_list:
-                                    for clients_key, clients_values in clients_dict.items():
-                                        if clients_values[0] == pseudo_destinataire:
-                                            conn, addr = clients_key
-                                            if clients_values[1] == "connected":
-                                                conn.sendall(f"Message privé de {pseudo}: {message}\n".encode(FORMAT))
-                                            else:
-                                                connection.sendall(f"Le joueur {pseudo_destinataire} n'est pas connecté.\n".encode(FORMAT))
-                                    # if the pseudo doesn't exist in the dictionary
-                                    if pseudo_destinataire not in [var[0] for key, var in clients_dict.items()]:
-                                        connection.sendall(f"Le joueur {pseudo_destinataire} n'existe pas.\n".encode(FORMAT))
-                        elif client_message.startswith('!'):
-                            if client_message == "!DISCONNECT":
-                                socket_to_remove = (connection, client_address)
-                                connection.close()
-                                clients_dict[(connection, client_address)][1] = "disconnected"
-                                if socket_to_remove in sockets_list:
-                                    sockets_list.remove(socket_to_remove)
-                            elif client_message == "!list":
-                                connection.sendall(f"Nombre de joueurs connectés: {len(clients_dict)}\n".encode(FORMAT))
-                                for client_socket, val in clients_dict.items():
-                                    connection.sendall(f"{val[0]} : {val[1]}\n".encode(FORMAT))
-                            elif client_message == "!online_status":
-                                for client_socket, val in clients_dict.items():
-                                    connection.sendall(f"Statut en ligne du joueur {val[0]}: {val[1]}\n".encode(FORMAT))
+                        pass
+                else:
+                    if client_message.startswith('@'):
+                        private_message = True
+                        if len(client_message.split(' ')) < 2:
+                            connection.sendall("Veuillez spécifier le destinataire et le message.\n".encode(FORMAT))
                         else:
-                            if private_message is False and heartbeat_message is False:
-                                for client_socket, val in clients_dict.items():
-                                    conn, addr = client_socket
-                                    if val[0] is None:
-                                        pseudo_pm = (conn, addr)
-                                    else:
-                                        pseudo_pm = val[0]
-                                    if client_socket != server_socket and client_socket != connection:
-                                        if val[1] == "connected":  # Check if client is still connected
-                                            conn.sendall(f"{pseudo_pm}: {client_message}\n".encode(FORMAT))
-                else:
-                    pass
-            except Exception as error:
-                print("Erreur lors de la réception des données :", error)
-                if error.errno == errno.EBADF:
-                # Handle "Bad file descriptor" error gracefully
-                    print("File descriptor:", connection.fileno())
-                    print("Socket closed. Ignoring further processing.")
-                clients_dict[(connection, client_address)][1] = "fucked up"
-                #if (connection, client_address) in sockets_list:
-                #    sockets_list.remove((connection, client_address))
-        else:
-            heartbeat_message = "$HEARTBEAT?"
-            connection.sendall(heartbeat_message.encode(FORMAT))
-            checking_pulse, _, _ = select.select([connection],[],[], 1)
-            if checking_pulse:
-                print("The connection is alive!")
+                            pseudo_list, message = parse_private_message(client_message)
+                            for pseudo_destinataire in pseudo_list:
+                                for clients_key, clients_values in clients_dict.items():
+                                    if clients_values[0] == pseudo_destinataire:
+                                        conn, addr = clients_key
+                                        if clients_values[1] == "connected":
+                                            conn.sendall(f"Message privé de {pseudo}: {message}\n".encode(FORMAT))
+                                        else:
+                                            connection.sendall(f"Le joueur {pseudo_destinataire} n'est pas connecté.\n".encode(FORMAT))
+                                # if the pseudo doesn't exist in the dictionary
+                                if pseudo_destinataire not in [var[0] for key, var in clients_dict.items()]:
+                                    connection.sendall(f"Le joueur {pseudo_destinataire} n'existe pas.\n".encode(FORMAT))
+                    elif client_message.startswith('!'):
+                        if client_message == "!DISCONNECT":
+                            socket_to_remove = (connection, client_address)
+                            connection.close()
+                            clients_dict[(connection, client_address)][1] = "disconnected"
+                            if socket_to_remove in sockets_list:
+                                sockets_list.remove(socket_to_remove)
+                        elif client_message == "!list":
+                            connection.sendall(f"Nombre de joueurs connectés: {len(clients_dict)}\n".encode(FORMAT))
+                            for client_socket, val in clients_dict.items():
+                                connection.sendall(f"{val[0]} : {val[1]}\n".encode(FORMAT))
+                        elif client_message == "!online_status":
+                            for client_socket, val in clients_dict.items():
+                                connection.sendall(f"Statut en ligne du joueur {val[0]}: {val[1]}\n".encode(FORMAT))
+                    else:
+                        if private_message is False and heartbeat_message is False:
+                            for client_socket, val in clients_dict.items():
+                                conn, addr = client_socket
+                                if val[0] is None:
+                                    pseudo_pm = (conn, addr)
+                                else:
+                                    pseudo_pm = val[0]
+                                if client_socket != server_socket and client_socket != connection:
+                                    if val[1] == "connected":  # Check if client is still connected
+                                        conn.sendall(f"{pseudo_pm}: {client_message}\n".encode(FORMAT))
             else:
-                clients_dict[(connection, client_address)][2] = "connection-deactivated"
-                # clients_dict((connection, client_address))[1] = "disconnected"
-                if clients_dict[(connection, client_address)][0] is None:
-                    pseudo_hb = (connection, client_address)
-                else:
-                    pseudo_hb = clients_dict[(connection, client_address)][0]
-                print(f"{pseudo_hb} appears to be disconnected!")
-            break
+                pass
+        except Exception as error:
+            print("Erreur lors de la réception des données :", error)
+            if error.errno == errno.EBADF:
+            # Handle "Bad file descriptor" error gracefully
+                print("File descriptor:", connection.fileno())
+                print("Socket closed. Ignoring further processing.")
+            clients_dict[(connection, client_address)][1] = "fucked up"
+            #if (connection, client_address) in sockets_list:
+            #    sockets_list.remove((connection, client_address))
+    else:
+        heartbeat_message = "$HEARTBEAT?"
+        connection.sendall(heartbeat_message.encode(FORMAT))
+        checking_pulse, _, _ = select.select([connection],[],[], 1)
+        if checking_pulse:
+            print("The connection is alive!")
+        else:
+            clients_dict[(connection, client_address)][2] = "connection-deactivated"
+            # clients_dict((connection, client_address))[1] = "disconnected"
+            if clients_dict[(connection, client_address)][0] is None:
+                pseudo_hb = (connection, client_address)
+            else:
+                pseudo_hb = clients_dict[(connection, client_address)][0]
+            print(f"{pseudo_hb} appears to be disconnected!")
 
 
 def signal_handler(sig, frame):
