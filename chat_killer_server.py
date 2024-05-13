@@ -279,7 +279,7 @@ def handle_client(connection, client_address):
     # sockets_list = creation_socket(server)
     try:
         if game_started is False:
-            welcome_message = "Bienvenu sur le serveur!"
+            welcome_message = "Bienvenu sur le serveur!\n"
             connection.send(welcome_message.encode(FORMAT))
         while clients_dict[(connection, client_address)][1] == "connected":
             gestion_message(connection, client_address, server)
