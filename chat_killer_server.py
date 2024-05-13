@@ -89,11 +89,7 @@ def gestion_message(connection, client_address, server_socket):
             if client_message:
                 client_key = (connection, client_address)
                 # if suspended, send a message to the client and not share the message with other clients
-                if clients_dict[client_key][3] == "suspended":
-                    connection.sendall("Vous avez été suspendu. Vous ne pouvez pas envoyer de messages tant que vous n'êtes pas excusé. (forgive(n))\n".encode(FORMAT))
-                elif clients_dict[client_key][3] == "banned":
-                    connection.sendall("Vous avez été bann,i. Vous ne pouvez pas envoyer de messages.\n".encode(FORMAT))
-                elif client_message.startswith("$HEARTBEAT?"):
+                if client_message.startswith("$HEARTBEAT?"):
                     heartbeat_message = True
                     connection.sendall("$HEARTBEAT!".encode(FORMAT))
                     clients_dict[(connection, client_address)][2] = "connection-active"
@@ -102,6 +98,11 @@ def gestion_message(connection, client_address, server_socket):
                     heartbeat_message = True
                     connection.sendall("$HEARTBEAT?".encode(FORMAT))
                     clients_dict[(connection, client_address)][2] = "connection-active"
+                elif clients_dict[client_key][3] == "suspended" and not heartbeat_message:
+                    connection.sendall("Vous avez été suspendu. Vous ne pouvez pas envoyer de messages tant que vous n'êtes pas excusé. (forgive(n))\n".encode(FORMAT))
+                elif clients_dict[client_key][3] == "banned" and not heartbeat_message:
+                    connection.sendall("Vous avez été banni. Vous ne pouvez pas envoyer de messages.\n".encode(FORMAT))
+                
                     #print(f"Received heartbeat from {(connection, client_address)}")
                 elif client_key in clients_dict and clients_dict[client_key][0] is None and clients_dict[client_key][3] == "alive":
                     if client_message.startswith("pseudo="):

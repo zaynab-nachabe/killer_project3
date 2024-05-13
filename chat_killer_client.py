@@ -20,6 +20,8 @@ ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
 
+if len(sys.argv) > 1:
+    PORT = int(sys.argv[1])
 # Initialize the client variable to be changed later by the connect function, then used by other functions
 client = None
 # Server status global variable, changed with heartbeat
@@ -198,8 +200,7 @@ def receive(fd, socket):
                         log_CookieIdFailedMsg = "Authentification failed. Check spelling for the pseudo.\n"
                         os.write(fd, log_CookieIdFailedMsg)
                     elif server_message.startswith("Pseudo déjà pris!"):
-                        #log_PseudoPrisMsg = "The pseudo you have chosen is unavailable. Please try again.\n"
-                        #os.write(log, log_PseudoPrisMsg.encode(FORMAT))
+                        #logic handled in FIFO function
                         pass
                     elif server_message.startswith("$HEARTBEAT?"):
                         log_sHBMsg = "$HEARTBEAT!"
