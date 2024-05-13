@@ -205,9 +205,9 @@ def gestion_message(connection, client_address, server_socket):
         connection.sendall(heartbeat_message.encode(FORMAT))
         checking_pulse, _, _ = select.select([connection],[],[], 1)
         if checking_pulse:
-            continue
+            print("The connection is alive!")
         else:
-            print("CLient appears to be disconnected")
+            print("CLient appears to be disconnected!")
 
 
 def signal_handler(sig, frame):
