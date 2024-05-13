@@ -313,7 +313,6 @@ def handle_server_input():
             for client in clients_dict.keys():
                 if clients_dict[client][1] == "connected":
                     client[0].sendall(SHUTDOWN_MESSAGE.encode(FORMAT))
-                    client[0].close()
             server.close()
             sys.exit(0)
         elif command == "!start":
