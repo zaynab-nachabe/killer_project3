@@ -7,7 +7,8 @@
 # • peut suspendre temporairement ou bannir définitivement un joueur au cours de partie (c'est un modérateur)
 # • vérifie que le programmeur a bien fait son travail (débogage)
 
-import socket, os
+import socket
+import os
 import threading
 import signal
 import sys
@@ -153,6 +154,8 @@ def gestion_message(connection, client_address, server_socket):
                         else:
                             pseudo_list, message = parse_private_message(client_message)
                             for pseudo_destinataire in pseudo_list:
+                                if pseudo_destinataire == "Admin" or pseudo_destinataire == "admin":
+                                    print("Message privé de", clients_dict[(connection, client_address)][0], "à Admin:", message)
                                 for clients_key, clients_values in clients_dict.items():
                                     if clients_values[0] == pseudo_destinataire:
                                         conn, addr = clients_key
