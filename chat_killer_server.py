@@ -40,7 +40,9 @@ server.bind(ADDR)
 # The address is a tuple containing the hostname and port number
 # essentially, this is the server's address and port number that the server will listen on
 # Écoute des connexions entrantes
-server.listen()
+server.listen(5)
+
+server.setblocking(0)
 
 print("Serveur démarré sur le port", PORT)
 
@@ -234,6 +236,8 @@ def gestion_message(connection, client_address, server_socket):
 def signal_handler(sig, frame):
     """Handle graceful shutdown on SIGINT."""
     print("\n[SHUTDOWN] Server is shutting down...")
+    global shutdown
+    shutdown = True
     for client, info in clients_dict.items():
         if info[1] == "connected":
             try:
@@ -241,8 +245,8 @@ def signal_handler(sig, frame):
             except:
                 pass
     shutdown_event.is_set()
-    # server.close()
-    # sys.exit(0)
+    server.close()
+    sys.exit(0)
 
 
 def how_many_players():
@@ -429,10 +433,9 @@ def main():
     thread3 = threading.Thread(target=handle_server_input)
     thread3.daemon = True
     thread3.start()
-    
+    """
     while True:
-        if shutdown_event.is_set():
-            break
+
         conn, addr = server.accept()
         thread = threading.Thread(target=handle_client, args=(conn, addr))
         thread.daemon = True
@@ -441,28 +444,27 @@ def main():
         print(f"[ACTIVE CONNECTIONS] {how_many_connected()}")
     
     print("[SHUTDOWN] Server is finally shutting down...")
-    
     """
 
     threads = []
     try:
         while True:
+            ready_to_read, _, _ = select.select([server], [], [], 1)
             if shutdown: 
                 print("[SHUTDOWN] Server is shutting down...")
                 break
-            conn, addr = server.accept()
-            thread = threading.Thread(target=handle_client, args=(conn, addr))
-            thread.daemon = False
-            thread.start()
-            threads.append(thread)
-            print()
-            print(f"[ACTIVE CONNECTIONS] {how_many_connected()}")
+            if ready_to_read:
+                conn, addr = server.accept()
+                thread = threading.Thread(target=handle_client, args=(conn, addr))
+                thread.daemon = False
+                thread.start()
+                threads.append(thread)
+                print()
+                print(f"[ACTIVE CONNECTIONS] {how_many_connected()}")
     finally:
         server.close()
-        for t in threads:
-            t.join()
-
-    """
+        for thread in threads:
+            thread.join()
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
