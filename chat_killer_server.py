@@ -45,6 +45,7 @@ sockets_list = [server]
 
 private_message = False
 game_started = False
+heartbeat_message = False
 
 cookie_dictionary = {}
 
@@ -82,6 +83,8 @@ def gestion_message(connection, client_address, server_socket):
     global sockets_list
     global cookie_dictionary
     global private_message
+    global game_started
+    global heartbeat_message
     try:
         beating_heart, _, _ = select.select([connection], [], [], 1)
     except select.error as e:
@@ -91,6 +94,7 @@ def gestion_message(connection, client_address, server_socket):
     if beating_heart:
         try:
             private_message = False
+            heartbeat_message = False
             client_message = connection.recv(1024).decode()
             #print("Clients dict:", clients_dict)
             if client_message:
@@ -100,6 +104,11 @@ def gestion_message(connection, client_address, server_socket):
                     connection.sendall("Vous avez été suspendu. Vous ne pouvez pas envoyer de messages tant que vous n'êtes pas excusé. (forgive(n))\n".encode(FORMAT))
                 elif clients_dict[client_key][3] == "banned":
                     connection.sendall("Vous avez été banni. Vous ne pouvez pas envoyer de messages.\n".encode(FORMAT))
+                elif client_message.startswith("$HEARTBEAT?"):
+                    heartbeat_message = True
+                    connection.sendall("$HEARTBEAT!".encode(FORMAT))
+                    clients_dict[(connection, client_address)][2] = "connection-active"
+                    print(f"Received heartbeat from {(connection, client_address)}")
                 elif client_key in clients_dict and clients_dict[client_key][0] is None and clients_dict[client_key][3] == "alive":
                     if client_message.startswith("pseudo="):
                         pseudo = client_message.split("=")[1].strip()
@@ -130,7 +139,8 @@ def gestion_message(connection, client_address, server_socket):
                                     del clients_dict[copycatsocket]
                                     clients_dict[client_key][0] = pseudo
                                     clients_dict[client_key][1] = "connected"
-                                    clients_dict[client_key][2] = f"last-heartbeat: {time.time()}"
+                                    clients_dict[client_key][2] = "connection-active"
+                                    clients_dict[client_key][3] = "alive"
                                     connection.sendall("Reconnexion réussie!\n".encode(FORMAT))
                             else:
                                 connection.sendall("Pseudo déjà pris!\n".encode(FORMAT))
@@ -143,11 +153,6 @@ def gestion_message(connection, client_address, server_socket):
                     else:
                         pass
                 else:
-                    pseudo = clients_dict[(connection, client_address)][0]  # Retrieve pseudo from dictionary
-                    if client_message.startswith("$HEARTBEAT?"):
-                        clients_dict[connection][2] = f"last-heartbeat:{time.time()}"
-                        connection.sendall("$HEARTBEAT!".encode(FORMAT))
-                        print(f"Received heartbeat from {pseudo}")
                     if client_message.startswith('@'):
                         private_message = True
                         if len(client_message.split(' ')) < 2:
@@ -179,11 +184,8 @@ def gestion_message(connection, client_address, server_socket):
                         elif client_message == "!online_status":
                             for client_socket, val in clients_dict.items():
                                 connection.sendall(f"Statut en ligne du joueur {val[0]}: {val[1]}\n".encode(FORMAT))
-                        elif client_message == "!last-heartbeats":
-                            for client_socket, val in clients_dict.items():
-                                connection.sendall(f"Joueur: {val[0]} - Dernier battement de coeur: {val[2]}\n".encode(FORMAT))
                     else:
-                        if private_message is False:
+                        if private_message is False and heartbeat_message is False:
                             for client_socket, val in clients_dict.items():
                                 conn, addr = client_socket
                                 if client_socket != server_socket and client_socket != connection:
@@ -207,7 +209,13 @@ def gestion_message(connection, client_address, server_socket):
         if checking_pulse:
             print("The connection is alive!")
         else:
-            print("CLient appears to be disconnected!")
+            clients_dict((connection, client_address))[2] = "connection-deactivated"
+            # clients_dict((connection, client_address))[1] = "disconnected"
+            if clients_dict[(connection, client_address)][0] is None:
+                pseudo_hb = (connection, client_address)
+            else:
+                pseudo_hb = clients_dict[(connection, client_address)][0]
+            print(f"{pseudo_hb} appears to be disconnected!")
 
 
 def signal_handler(sig, frame):
@@ -258,7 +266,7 @@ def handle_client(connection, client_address):
     if game_started:
         connection.sendall("La partie a déjà commencé. Tenter de vous connecter avec votre ancien pseudo. \n".encode(FORMAT))
         
-    clients_dict[(connection, client_address)] = [None, "connected", f"last-heartbeat: {time.time()}", "alive"]
+    clients_dict[(connection, client_address)] = [None, "connected", "connection-active", "alive"]
     # sockets_list = creation_socket(server)
     try:
         if game_started is False:
@@ -288,10 +296,10 @@ def handle_server_input():
             print("Online status of players:")
             for _, info in clients_dict.keys():
                 print(f"Player status: {info[1]}")
-        elif command == "!last-heartbeats":
-            print("The last heartbeats of each player is:")
+        elif command == "!connection-status":
+            print("The last time we checked, for each player:")
             for _, info in clients_dict.items():
-                print(f"Player: {info[0]} - {info[2]}")
+                print(f"Player: {info[0]} - the status for their connection is {info[2]}")
         elif command == "!shutdown":
             for client in clients_dict.keys():
                 if clients_dict[client][1] == "connected":
@@ -357,7 +365,7 @@ def handle_server_input():
             print("Liste des commandes disponibles:")
             print("!list : liste les joueurs connectés")
             print("!online_status : affiche le statut en ligne de chaque joueur")
-            print("!last-heartbeats : affiche les derniers battements de coeur de chaque joueur")
+            print("!connection-status : affiche le statut de la dernière connexion de chaque joueur")
             print("!shutdown : arrête le serveur")
             print("!start : démarre la partie et empêche les nouveaux joueurs de se connecter")
             print("!suspend <pseudo> <raison> : suspend un joueur")
