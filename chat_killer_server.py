@@ -27,6 +27,10 @@ SHUTDOWN_MESSAGE = "!SERVER_SHUTDOWN"
 
 clients_dict = {}
 
+shutdown = False
+
+shutdown_event = threading.Event()
+
 cache_info_stack = []
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
@@ -236,9 +240,10 @@ def signal_handler(sig, frame):
                 client[0].sendall(SHUTDOWN_MESSAGE.encode(FORMAT))
             except:
                 pass
-    # gracefully close the server socket
-    server.close()
-    sys.exit(0)
+    shutdown_event.is_set()
+    # server.close()
+    # sys.exit(0)
+
 
 def how_many_players():
     """Return the number of connected players."""
@@ -295,6 +300,7 @@ def handle_client(connection, client_address):
 
 def handle_server_input():
     global clients_dict
+    global shutdown
     global game_started
     while True:
         command = input("Enter a command: ")
@@ -312,14 +318,16 @@ def handle_server_input():
             for _, info in clients_dict.items():
                 print(f"Player: {info[0]} - the status for their connection is {info[2]}")
         elif command == "!shutdown":
+            shutdown = True
             for client in clients_dict.keys():
                 if clients_dict[client][1] == "connected":
                     try:
                         client[0].sendall(SHUTDOWN_MESSAGE.encode(FORMAT))
                     except:
                         pass
-            server.close()
-            sys.exit(0)
+            shutdown_event.is_set()
+            # server.close()
+            # sys.exit(0)
         elif command == "!start":
             game_started = True
             print("Game started.")
@@ -417,16 +425,44 @@ def main():
     # thread4 = threading.Thread(target=send_heartbeats)
     # thread4.daemon = True
     # thread4.start()
+
     thread3 = threading.Thread(target=handle_server_input)
     thread3.daemon = True
     thread3.start()
+    
     while True:
+        if shutdown_event.is_set():
+            break
         conn, addr = server.accept()
         thread = threading.Thread(target=handle_client, args=(conn, addr))
         thread.daemon = True
         thread.start()
         print()
         print(f"[ACTIVE CONNECTIONS] {how_many_connected()}")
+    
+    print("[SHUTDOWN] Server is finally shutting down...")
+    
+    """
+
+    threads = []
+    try:
+        while True:
+            if shutdown: 
+                print("[SHUTDOWN] Server is shutting down...")
+                break
+            conn, addr = server.accept()
+            thread = threading.Thread(target=handle_client, args=(conn, addr))
+            thread.daemon = False
+            thread.start()
+            threads.append(thread)
+            print()
+            print(f"[ACTIVE CONNECTIONS] {how_many_connected()}")
+    finally:
+        server.close()
+        for t in threads:
+            t.join()
+
+    """
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
