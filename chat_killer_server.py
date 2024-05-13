@@ -218,7 +218,10 @@ def gestion_message(connection, client_address, server_socket):
         if checking_pulse:
             print("The connection is alive!")
         else:
-            clients_dict((connection, client_address))[2] = "connection-deactivated"
+            try:
+                clients_dict((connection, client_address))[2] = "connection-deactivated"
+            except TypeError:
+                pass
             # clients_dict((connection, client_address))[1] = "disconnected"
             if clients_dict[(connection, client_address)][0] is None:
                 pseudo_hb = (connection, client_address)
