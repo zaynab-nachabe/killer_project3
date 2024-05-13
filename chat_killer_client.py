@@ -22,7 +22,6 @@ DISCONNECT_MESSAGE = "!DISCONNECT"
 
 # Initialize the client variable to be changed later by the connect function, then used by other functions
 client = None
-connection_established = threading.Event()
 # Server status global variable, changed with heartbeat
 server_Disconnected = threading.Event()
 # Flag for when the user chooses to close after a disconnect through the FIFO, changing logic of SIGCHLD handling
@@ -31,7 +30,6 @@ user_Closed = False
 pseudo_Global = None
 # threading event for cookie directory creation function ; threading event to know when to write cookie data
 cookie_dir_created = threading.Event()
-cookie_baked = threading.Event()
 # Store cookie data
 cookie_data = None
 # Initialize pid variables for xterms, to be changed dynamically to correct values
@@ -46,13 +44,11 @@ unique_LOG = f"killer{str(unique_pid)}.log"
 def connect_server():
     global ADDR
     global client
-    global connection_established
     try:
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client.connect(ADDR)
-        connection_established.set()
     except ConnectionRefusedError:
-        return False
+        print("Connection Refused.") 
 
 def send(msg):
     message = msg.encode(FORMAT)
@@ -63,7 +59,6 @@ def create_cookie_dir(pseudo): # creates the cookie file for a specific pseudo a
     try:
         os.mkdir(f"/var/tmp/{pseudo}") # creates pseudo directory
         cookie_dir_created.set()
-        print(f"Cookie directory successfully created for pseudo: {pseudo}")
     except OSError as err:
         if err.errno == 17:
             pass
@@ -74,7 +69,6 @@ def create_cookie_dir(pseudo): # creates the cookie file for a specific pseudo a
 def FIFO_to_Server(fifo, log): # function handling the user inputs to send to server through a FIFO
     global user_Closed
     global pseudo_Global
-    global connection_established
     global listening_Thread
     global server_Disconnected
 
@@ -113,7 +107,6 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
         finally:
             print("Disconnecting from server...")
             client.close()
-            connection_established.clear()
             disconnectLogMessage = "You've disconnected from the server. If you would like to reconnect, enter '!reconnect'.\nOtherwise, enter '!close'.\n"
             os.write(log, disconnectLogMessage.encode(FORMAT))
             closed_flag = False
@@ -149,8 +142,7 @@ def receive(fd, socket):
     global cookie_dir_created
     global cookie_data
     global cookie_baked
-    global connection_established
-
+    global pseudo_Global
     while True:
         try:
             beating_heart, _, _ = select.select([socket], [], [], 1) # Wait for server
@@ -167,8 +159,11 @@ def receive(fd, socket):
                 if server_message:
                     if server_message.startswith("$cookie="):
                         cookie_data = server_message[8:]
-                        cookie_baked.set()
-                        print(f"cookie data received: {cookie_data}")
+                        cookie_dir_created.wait()
+                        with open(f"/var/tmp/{pseudo_Global}/cookie", "w") as cookie_file:
+                            cookie_file.write(cookie_data)
+                            log_PseudoChosenChatRoomMsg = "Pseudo accepted. Profile created. Welcome to the Chat Room !\n"
+                            os.write(fd, log_PseudoChosenChatRoomMsg.encode(FORMAT))
                     elif server_message.startswith("$send_cookie"):
                         log_CookieReconnectMsg = "\nAttempting to reconnect with a known pseudo, authenticating ...\n"
                         os.write(fd, log_CookieReconnectMsg.encode(FORMAT))
@@ -195,7 +190,6 @@ def receive(fd, socket):
                         # Heartbeat received, no parsing necessary, connection considered active
                         pass
                     elif server_message.startswith("!SERVER_SHUTDOWN"):
-                        
                         log_ServerShutdownMsg = "Server has sent a shutdown. Disconnecting ...\n"
                         os.write(fd, log_ServerShutdownMsg.encode(FORMAT))
                         server_Disconnected.set()
@@ -205,7 +199,6 @@ def receive(fd, socket):
                         print(server_message.strip())    
             except Exception as e:
                 if e.errno == 9:
-                    print("Bad file descriptor, breaking ...")
                     break
                 else:
                     print('Exception occured for receive function:', e)
@@ -278,7 +271,7 @@ def client_Cleanup():
 # terminate gracefully if there is a ctrl-c, handles signal
 def gracefulclean_signalhandler(signum, frame):
     signal.signal(signal.SIGCLD, signal.SIG_DFL)
-    print(f"\nUnexpected SIGINT received, cleaning up and exiting...")
+    print("\nUnexpected SIGINT received, cleaning up and exiting...")
     client_Cleanup()
 
 def main():
@@ -327,25 +320,12 @@ def main():
     
     # Keeps main thread active until the either captured SIGINT or user closes FIFO with !close
     while not user_Closed:
-        if cookie_baked.wait(timeout=0.01):
-            cookie_dir_created.wait(timeout=1)
-            if cookie_dir_created.is_set():
-                try:
-                    fd_c = os.open(f"/var/tmp/{pseudo_Global}/cookie", os.O_RDWR|os.O_TRUNC|os.O_CREAT) # creates cookie and leaves fd_c open, waiting to receive cookie data from server
-                except OSError as err:
-                    print(f"Erreur creation cookie \"/var/tmp/{pseudo_Global}/cookie\": (%d)"%(err.errno),file=sys.stderr)
-                cookie_dir_created.clear() # Make the flag revert to false so that the if condition isn't entered every while iteration once it's True
-                # Once cookie data is received and stored in cookie_data variable, write it to the cookie fd and then change stored data in variable back to None to prevent constant loop
-                os.write(fd_c, cookie_data.encode(FORMAT))
-                print("Cookie data received and written to file.")
-                cookie_baked.clear()
-        
+        time.sleep(1)
     # Override signal that keeps xterms open
     signal.signal(signal.SIGCLD, signal.SIG_DFL)
     # close the open files
     os.close(fdr)   
     os.close(fdw)
-    os.close(fd_c)
     client_Cleanup()
     
 if __name__ == "__main__":
