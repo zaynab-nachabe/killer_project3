@@ -155,7 +155,7 @@ def gestion_message(connection, client_address, server_socket):
                             pseudo_list, message = parse_private_message(client_message)
                             for pseudo_destinataire in pseudo_list:
                                 if pseudo_destinataire == "Admin" or pseudo_destinataire == "admin":
-                                    print("Message privé de", clients_dict[(connection, client_address)][0], "à Admin:", message)
+                                    print(f"{clients_dict[(connection, client_address)][0]} : {message}")
                                 for clients_key, clients_values in clients_dict.items():
                                     if clients_values[0] == pseudo_destinataire:
                                         conn, addr = clients_key
@@ -164,7 +164,7 @@ def gestion_message(connection, client_address, server_socket):
                                         else:
                                             connection.sendall(f"Le joueur {pseudo_destinataire} n'est pas connecté.\n".encode(FORMAT))
                                 # if the pseudo doesn't exist in the dictionary
-                                if pseudo_destinataire not in [var[0] for key, var in clients_dict.items()]:
+                                if pseudo_destinataire not in [var[0] for key, var in clients_dict.items()] and pseudo_destinataire.lower() != "admin":
                                     connection.sendall(f"Le joueur {pseudo_destinataire} n'existe pas.\n".encode(FORMAT))
                     elif client_message.startswith('!'):
                         if client_message == "!DISCONNECT":
