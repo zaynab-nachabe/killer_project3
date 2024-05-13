@@ -71,7 +71,7 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
     global pseudo_Global
     global listening_Thread
     global server_Disconnected
-
+    global cookie_dir_created
     while True:
         try:
             pseudo_chosen = False
@@ -88,9 +88,24 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
                         send(msg)
                         break
                     elif msg.startswith("pseudo=") and msg != "pseudo=":
-                        pseudo_Global = msg[7:]
-                        create_cookie_dir(pseudo_Global)
-                        pseudo_chosen = True
+                        pseudo_Local = msg[7:]
+                        pseudoL_stripped = pseudo_Local.strip()
+                        pseudoL_stripped_replaceWS = pseudoL_stripped.replace(" ", "_")
+                        if pseudoL_stripped_replaceWS.lower() != "admin":
+                            pseudo_Global = pseudoL_stripped_replaceWS
+                            pseudoMsgFormatted = f"pseudo={pseudo_Global}"
+                            send(pseudoMsgFormatted)
+                            if cookie_dir_created.wait(timeout=1):
+                                pseudo_chosen = True
+                                continue
+                            else:
+                                log_PseudoUnavailableMsg = "Pseudo unavailable. Please choose a different one.\n"
+                                os.write(log, log_PseudoUnavailableMsg.encode(FORMAT))
+                                continue
+                        else:
+                            log_InvalidPseudoMsg = "Sorry, your Pseudo is invalid. Pseudos can't contain spaces, nor be 'Admin' and it's variations.\n"
+                            os.write(log, log_InvalidPseudoMsg.encode(FORMAT))
+                            continue
                     else:
                         log_nonPseudoOrDisconnectErrMsg ="Sorry, you must choose a username with 'pseudo=username' or disconnect with '!DISCONNECT'.\n"
                         os.write(log, log_nonPseudoOrDisconnectErrMsg.encode(FORMAT))
@@ -125,10 +140,12 @@ def FIFO_to_Server(fifo, log): # function handling the user inputs to send to se
                     os.write(log, reconnectingLogMsg.encode(FORMAT))
                     reconnected = connect_server()
                     if reconnected == False:
-                        reconnectFailLogMsg = "Reconnection failed. Checking Server status ..."
+                        reconnectFailLogMsg = "Reconnection failed. Checking Server status ...\n"
                         os.write(log, reconnectFailLogMsg.encode(FORMAT))
                         continue
                     else:
+                        reconnectTrueLogMsg = "Connection Reestablished.\n"
+                        os.write(log, reconnectTrueLogMsg.encode(FORMAT))
                         listening_Thread = threading.Thread(target=receive, args=(log,client))
                         listening_Thread.daemon = True
                         listening_Thread.start()
@@ -159,7 +176,7 @@ def receive(fd, socket):
                 if server_message:
                     if server_message.startswith("$cookie="):
                         cookie_data = server_message[8:]
-                        cookie_dir_created.wait()
+                        create_cookie_dir(pseudo_Global)
                         with open(f"/var/tmp/{pseudo_Global}/cookie", "w") as cookie_file:
                             cookie_file.write(cookie_data)
                             log_PseudoChosenChatRoomMsg = "Pseudo accepted. Profile created. Welcome to the Chat Room !\n"
@@ -181,7 +198,9 @@ def receive(fd, socket):
                         log_CookieIdFailedMsg = "Authentification failed. Check spelling for the pseudo.\n"
                         os.write(fd, log_CookieIdFailedMsg)
                     elif server_message.startswith("Pseudo déjà pris!"):
-                        log_PseudoPrisMsg = "The pseudo you have chosen is unavailable. Please try again.\n"
+                        #log_PseudoPrisMsg = "The pseudo you have chosen is unavailable. Please try again.\n"
+                        #os.write(log, log_PseudoPrisMsg.encode(FORMAT))
+                        pass
                     elif server_message.startswith("$HEARTBEAT?"):
                         log_sHBMsg = "$HEARTBEAT!"
                         socket.sendall(log_sHBMsg.encode(FORMAT))
