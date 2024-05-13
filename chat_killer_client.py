@@ -204,7 +204,6 @@ def receive(fd, socket):
                     elif server_message.startswith("$HEARTBEAT?"):
                         log_sHBMsg = "$HEARTBEAT!"
                         socket.sendall(log_sHBMsg.encode(FORMAT))
-                        print("Heartbeat sent.")
                     elif server_message.startswith("$HEARTBEAT!"):
                         # Heartbeat received, no parsing necessary, connection considered active
                         pass
@@ -214,8 +213,7 @@ def receive(fd, socket):
                         server_Disconnected.set()
                         break
                     else:
-                        os.write(fd, server_message.encode(FORMAT))
-                        print(server_message.strip())    
+                        os.write(fd, server_message.encode(FORMAT))   
             except Exception as e:
                 if e.errno == 9:
                     break
